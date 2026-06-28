@@ -6,7 +6,9 @@ use reqwest::StatusCode;
 use serde::Deserialize;
 
 const CIVITAI_IMAGES_ENDPOINT: &str = "https://civitai.com/api/v1/images";
-const CIVITAI_BROWSING_LEVEL_SFW: &str = "1";
+const CIVITAI_PERIOD: &str = "Month";
+const CIVITAI_SORT: &str = "Most Reactions";
+const CIVITAI_BROWSING_LEVEL_SAFE_AND_SOFT: &str = "3";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,6 +22,7 @@ struct CivitaiImagesResponse {
 struct CivitaiImageItem {
     id: i64,
     url: String,
+    hash: Option<String>,
     width: Option<u32>,
     height: Option<u32>,
     #[serde(rename = "type")]
@@ -38,7 +41,9 @@ pub(crate) async fn list_images(
 ) -> Result<CivitaiImagePage, String> {
     let limit = limit.clamp(1, 200);
     let mut url = format!(
-        "{CIVITAI_IMAGES_ENDPOINT}?limit={limit}&type=image&sort=Newest&browsingLevel={CIVITAI_BROWSING_LEVEL_SFW}"
+        "{CIVITAI_IMAGES_ENDPOINT}?limit={limit}&type=image&period={}&sort={}&browsingLevel={CIVITAI_BROWSING_LEVEL_SAFE_AND_SOFT}",
+        encode_query_value(CIVITAI_PERIOD),
+        encode_query_value(CIVITAI_SORT),
     );
     if let Some(cursor) = normalized_cursor(cursor) {
         url.push_str("&cursor=");
@@ -110,12 +115,18 @@ fn civitai_record_from_item(item: CivitaiImageItem) -> Option<ImageRecord> {
     Some(ImageRecord {
         path: url.to_string(),
         display_path: url.to_string(),
+        blur_hash: normalized_blur_hash(item.hash),
         media_type,
         width: item.width.unwrap_or(1).max(1),
         height: item.height.unwrap_or(1).max(1),
         modified: item.id,
         size: 0,
     })
+}
+
+fn normalized_blur_hash(hash: Option<String>) -> Option<String> {
+    hash.map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 fn format_civitai_http_error(status: StatusCode, body: &[u8]) -> String {

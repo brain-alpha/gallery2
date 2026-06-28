@@ -173,6 +173,7 @@ fn image_record_from_raw(
     ImageRecord {
         path: record.path,
         display_path,
+        blur_hash: None,
         media_type: record.media_type,
         width: record.width,
         height: record.height,

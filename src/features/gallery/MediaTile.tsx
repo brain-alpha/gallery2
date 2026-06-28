@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ImageRecord } from "../../types";
 import { classNames } from "../../utils";
-import { mediaSrc } from "./mediaSource";
+import { blurHashToDataUrl } from "./blurHash";
+import { mediaSrc, recordDisplaySrc } from "./mediaSource";
 
 const TILE_VIDEO_PREVIEW_TIME = 0.08;
 
@@ -10,36 +11,50 @@ export type PreviewState =
   | { type: "video"; src: string; width: number; height: number }
   | null;
 
-export function TileImage({ record }: { record: ImageRecord }) {
+export function TileImage({ record, displayWidth }: { record: ImageRecord; displayWidth?: number }) {
   const [sourceKind, setSourceKind] = useState<"display" | "original">("display");
+  const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  const displayPath = record.displayPath || record.path;
-  const src = mediaSrc(sourceKind === "display" ? displayPath : record.path);
+  const displaySrc = recordDisplaySrc(record, displayWidth);
+  const originalSrc = mediaSrc(record.path);
+  const src = sourceKind === "display" ? displaySrc : originalSrc;
+  const placeholderSrc = useMemo(() => blurHashToDataUrl(record.blurHash), [record.blurHash]);
 
   useEffect(() => {
     setSourceKind("display");
+    setLoaded(false);
     setFailed(false);
-  }, [displayPath, record.path]);
+  }, [displaySrc, originalSrc]);
 
   function handleError() {
-    if (sourceKind === "display" && displayPath !== record.path) {
+    if (sourceKind === "display" && displaySrc !== originalSrc) {
       setSourceKind("original");
+      setLoaded(false);
       setFailed(false);
       return;
     }
+    setLoaded(false);
     setFailed(true);
   }
 
   return (
     <>
+      <span
+        className={classNames("media-loading-placeholder", placeholderSrc && "has-blurhash")}
+        style={placeholderSrc ? { backgroundImage: `url(${placeholderSrc})` } : undefined}
+        aria-hidden="true"
+      />
       <img
-        className={classNames("tile-media", failed && "is-error")}
+        className={classNames("tile-media", !loaded && "is-loading", failed && "is-error")}
         loading="lazy"
         decoding="async"
         draggable={false}
         src={src}
         alt=""
-        onLoad={() => setFailed(false)}
+        onLoad={() => {
+          setLoaded(true);
+          setFailed(false);
+        }}
         onError={handleError}
       />
       {failed ? <MediaPlaceholder path={record.path} /> : null}

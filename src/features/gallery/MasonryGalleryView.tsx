@@ -344,7 +344,7 @@ export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_
                   videoIcon={<Icons.VideoCamera />}
                 />
               ) : (
-                <TileImage record={record} />
+                <TileImage record={record} displayWidth={layout.width} />
               )}
               {selected ? (
                 <span className="image-tile-badge image-tile-selection-mark">

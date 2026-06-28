@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct ImageRecord {
     pub(crate) path: String,
     pub(crate) display_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) blur_hash: Option<String>,
     pub(crate) media_type: String,
     pub(crate) width: u32,
     pub(crate) height: u32,

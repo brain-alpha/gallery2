@@ -839,7 +839,12 @@ textarea:focus {
   pointer-events: none;
   transition:
     transform 240ms ease,
-    filter 240ms ease;
+    filter 240ms ease,
+    opacity 180ms ease;
+}
+
+.image-tile img.is-loading {
+  opacity: 0;
 }
 
 .image-tile img.is-error,
@@ -894,6 +899,30 @@ textarea:focus {
   width: calc(100% + 2px);
   height: calc(100% + 2px);
   margin: -1px;
+}
+
+.media-loading-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.08)),
+    var(--tile-surface-gap, #eeeeee);
+  background-position: center;
+  background-size: cover;
+  transform: scale(1.02);
+  pointer-events: none;
+}
+
+.theme-black .media-loading-placeholder {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.22)),
+    #242528;
+}
+
+.media-loading-placeholder.has-blurhash {
+  filter: saturate(1.08);
 }
 
 .media-placeholder {

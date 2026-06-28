@@ -780,7 +780,7 @@ function sourceForAttachment(attachment: Attachment) {
 }
 
 function sourceForImageRecord(record: ImageRecord) {
-  const path = record.displayPath || record.path;
+  const path = record.path || record.displayPath;
   return isRemoteImageInput(path) ? path : convertFileSrc(path);
 }
 

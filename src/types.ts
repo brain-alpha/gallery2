@@ -3,6 +3,7 @@ export type MediaType = "image" | "video";
 export interface ImageRecord {
   path: string;
   displayPath: string;
+  blurHash?: string;
   mediaType: MediaType;
   width: number;
   height: number;
