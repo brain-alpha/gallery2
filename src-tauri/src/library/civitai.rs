@@ -1,5 +1,5 @@
-//! Civitai 站点图片数据源。
-//! 负责通过官方 Site API 拉取远程图片，并转换为前端复用的图库记录。
+//! Civitai 站点媒体数据源。
+//! 负责通过官方 Site API 拉取远程媒体，并转换为前端复用的图库记录。
 
 use crate::{
     shared::{
@@ -64,7 +64,7 @@ pub(crate) async fn list_images(
     let sort = normalized_sort(sort);
     let browsing_level = normalized_browsing_level(browsing_level);
     let mut url = format!(
-        "{CIVITAI_IMAGES_ENDPOINT}?limit={limit}&type=image&period={}&sort={}&browsingLevel={}",
+        "{CIVITAI_IMAGES_ENDPOINT}?limit={limit}&period={}&sort={}&browsingLevel={}",
         encode_query_value(period),
         encode_query_value(sort),
         encode_query_value(&browsing_level),
@@ -115,9 +115,9 @@ pub(crate) async fn favorite_image(
     url: String,
 ) -> Result<CivitaiFavoriteResult, String> {
     if image_id <= 0 {
-        return Err("Civitai image id 无效".to_string());
+        return Err("Civitai 资源 id 无效".to_string());
     }
-    validate_civitai_image_url(&url)?;
+    validate_civitai_media_url(&url)?;
 
     let favorite_dir = civitai_favorites_dir(&app)?;
     fs::create_dir_all(&favorite_dir)
@@ -131,18 +131,18 @@ pub(crate) async fn favorite_image(
         });
     }
 
-    let downloaded = download_civitai_image(&url).await?;
+    let downloaded = download_civitai_media(&url).await?;
     let extension = downloaded
         .content_type
         .as_deref()
-        .and_then(image_extension_from_content_type)
-        .or_else(|| image_extension_from_url(&url))
-        .unwrap_or("jpg");
+        .and_then(media_extension_from_content_type)
+        .or_else(|| media_extension_from_url(&url))
+        .unwrap_or_else(|| downloaded.kind.default_extension());
     let target = favorite_dir.join(format!(
         "{CIVITAI_FAVORITE_FILE_PREFIX}-{image_id}.{extension}"
     ));
     fs::write(&target, &downloaded.bytes)
-        .map_err(|err| format!("Failed to save Civitai favorite image: {err}"))?;
+        .map_err(|err| format!("Failed to save Civitai favorite resource: {err}"))?;
 
     Ok(CivitaiFavoriteResult {
         path: user_path_string(&target),
@@ -152,14 +152,15 @@ pub(crate) async fn favorite_image(
 
 pub(crate) fn unfavorite_image(app: tauri::AppHandle, image_id: i64) -> Result<(), String> {
     if image_id <= 0 {
-        return Err("Civitai image id 无效".to_string());
+        return Err("Civitai 资源 id 无效".to_string());
     }
 
     let favorite_dir = civitai_favorites_dir(&app)?;
     let Some(path) = existing_favorite_path(&favorite_dir, image_id) else {
         return Ok(());
     };
-    fs::remove_file(&path).map_err(|err| format!("Failed to remove Civitai favorite image: {err}"))
+    fs::remove_file(&path)
+        .map_err(|err| format!("Failed to remove Civitai favorite resource: {err}"))
 }
 
 fn normalized_cursor(cursor: Option<String>) -> Option<String> {
@@ -215,10 +216,7 @@ fn civitai_record_from_item(
         return None;
     }
 
-    let media_type = item.media_type.unwrap_or_else(|| "image".to_string());
-    if media_type != "image" {
-        return None;
-    }
+    let media_type = supported_civitai_media_type(item.media_type)?;
 
     Some(ImageRecord {
         path: url.to_string(),
@@ -231,6 +229,14 @@ fn civitai_record_from_item(
         modified: item.id,
         size: 0,
     })
+}
+
+fn supported_civitai_media_type(media_type: Option<String>) -> Option<String> {
+    match media_type.as_deref() {
+        Some("video") => Some("video".to_string()),
+        Some("image") | None => Some("image".to_string()),
+        _ => None,
+    }
 }
 
 fn existing_favorite_ids(favorite_dir: &Path) -> HashSet<i64> {
@@ -250,19 +256,35 @@ fn favorite_id_from_path(path: &Path) -> Option<i64> {
     (id > 0).then_some(id)
 }
 
-struct DownloadedImage {
-    bytes: Vec<u8>,
-    content_type: Option<String>,
+#[derive(Clone, Copy)]
+enum CivitaiMediaKind {
+    Image,
+    Video,
 }
 
-async fn download_civitai_image(url: &str) -> Result<DownloadedImage, String> {
+impl CivitaiMediaKind {
+    fn default_extension(self) -> &'static str {
+        match self {
+            CivitaiMediaKind::Image => "jpg",
+            CivitaiMediaKind::Video => "mp4",
+        }
+    }
+}
+
+struct DownloadedCivitaiMedia {
+    bytes: Vec<u8>,
+    content_type: Option<String>,
+    kind: CivitaiMediaKind,
+}
+
+async fn download_civitai_media(url: &str) -> Result<DownloadedCivitaiMedia, String> {
     let response = reqwest::Client::new()
         .get(url)
-        .header("Accept", "image/*")
+        .header("Accept", "image/*, video/*")
         .header("User-Agent", "Gallery")
         .send()
         .await
-        .map_err(|err| format!("Civitai 图片下载失败：{err}"))?;
+        .map_err(|err| format!("Civitai 资源下载失败：{err}"))?;
     let status = response.status();
     let content_type = response
         .headers()
@@ -272,19 +294,19 @@ async fn download_civitai_image(url: &str) -> Result<DownloadedImage, String> {
     let bytes = response
         .bytes()
         .await
-        .map_err(|err| format!("读取 Civitai 图片失败：{err}"))?;
+        .map_err(|err| format!("读取 Civitai 资源失败：{err}"))?;
     if !status.is_success() {
         return Err(format_civitai_http_error(status, &bytes));
     }
-    if !content_type
+    let kind = content_type
         .as_deref()
-        .is_some_and(|value| value.starts_with("image/"))
-    {
-        return Err("Civitai 收藏下载结果不是图片".to_string());
-    }
-    Ok(DownloadedImage {
+        .and_then(media_kind_from_content_type)
+        .or_else(|| media_kind_from_url(url))
+        .ok_or_else(|| "Civitai 收藏下载结果不是支持的图片或视频".to_string())?;
+    Ok(DownloadedCivitaiMedia {
         bytes: bytes.to_vec(),
         content_type,
+        kind,
     })
 }
 
@@ -308,16 +330,32 @@ fn existing_favorite_path(favorite_dir: &Path, image_id: i64) -> Option<PathBuf>
         })
 }
 
-fn validate_civitai_image_url(url: &str) -> Result<(), String> {
-    let parsed = reqwest::Url::parse(url).map_err(|_| "Civitai 图片地址无效".to_string())?;
+fn validate_civitai_media_url(url: &str) -> Result<(), String> {
+    let parsed = reqwest::Url::parse(url).map_err(|_| "Civitai 资源地址无效".to_string())?;
     let host = parsed.host_str().unwrap_or("");
     if parsed.scheme() != "https" || !matches!(host, "image.civitai.com" | "image-b2.civitai.com") {
-        return Err("只允许收藏 Civitai 图片地址".to_string());
+        return Err("只允许收藏 Civitai 媒体地址".to_string());
     }
     Ok(())
 }
 
-fn image_extension_from_content_type(content_type: &str) -> Option<&'static str> {
+fn normalized_content_type(content_type: &str) -> Option<String> {
+    Some(content_type.split(';').next()?.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+}
+
+fn media_kind_from_content_type(content_type: &str) -> Option<CivitaiMediaKind> {
+    match normalized_content_type(content_type)?.as_str() {
+        "image/jpeg" | "image/jpg" | "image/png" | "image/webp" | "image/gif" => {
+            Some(CivitaiMediaKind::Image)
+        }
+        "video/mp4" | "video/x-m4v" | "video/quicktime" | "video/webm" | "video/ogg"
+        | "video/x-msvideo" | "video/x-matroska" => Some(CivitaiMediaKind::Video),
+        _ => None,
+    }
+}
+
+fn media_extension_from_content_type(content_type: &str) -> Option<&'static str> {
     match content_type
         .split(';')
         .next()?
@@ -329,22 +367,47 @@ fn image_extension_from_content_type(content_type: &str) -> Option<&'static str>
         "image/png" => Some("png"),
         "image/webp" => Some("webp"),
         "image/gif" => Some("gif"),
+        "video/mp4" | "video/x-m4v" => Some("mp4"),
+        "video/quicktime" => Some("mov"),
+        "video/webm" => Some("webm"),
+        "video/ogg" => Some("ogv"),
+        "video/x-msvideo" => Some("avi"),
+        "video/x-matroska" => Some("mkv"),
         _ => None,
     }
 }
 
-fn image_extension_from_url(url: &str) -> Option<&'static str> {
-    let extension = reqwest::Url::parse(url).ok().and_then(|parsed| {
+fn normalized_url_extension(url: &str) -> Option<String> {
+    reqwest::Url::parse(url).ok().and_then(|parsed| {
         Path::new(parsed.path())
             .extension()
             .and_then(|value| value.to_str())
             .map(|value| value.to_ascii_lowercase())
-    })?;
+    })
+}
+
+fn media_kind_from_url(url: &str) -> Option<CivitaiMediaKind> {
+    let extension = normalized_url_extension(url)?;
+    match extension.as_str() {
+        "jpg" | "jpeg" | "png" | "webp" | "gif" => Some(CivitaiMediaKind::Image),
+        "mp4" | "m4v" | "mov" | "webm" | "ogv" | "mkv" | "avi" => Some(CivitaiMediaKind::Video),
+        _ => None,
+    }
+}
+
+fn media_extension_from_url(url: &str) -> Option<&'static str> {
+    let extension = normalized_url_extension(url)?;
     match extension.as_str() {
         "jpg" | "jpeg" => Some("jpg"),
         "png" => Some("png"),
         "webp" => Some("webp"),
         "gif" => Some("gif"),
+        "mp4" | "m4v" => Some("mp4"),
+        "mov" => Some("mov"),
+        "webm" => Some("webm"),
+        "ogv" => Some("ogv"),
+        "mkv" => Some("mkv"),
+        "avi" => Some("avi"),
         _ => None,
     }
 }

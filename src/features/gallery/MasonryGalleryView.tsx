@@ -374,7 +374,7 @@ export function MasonryGalleryView<TCursor>({
     }
     setPreview(null);
     const menuWidth = 118;
-    const menuHeight = favoriteRecord && record.mediaType === "image" ? 74 : 40;
+    const menuHeight = favoriteRecord ? 74 : 40;
     const left = Math.min(event.clientX, window.innerWidth - menuWidth - 8);
     const top = Math.min(event.clientY, window.innerHeight - menuHeight - 8);
     setContextMenu({
@@ -393,7 +393,7 @@ export function MasonryGalleryView<TCursor>({
   }
 
   async function handleFavoriteToggle(record: ImageRecord) {
-    if (record.mediaType !== "image" || isRecordFavoriteUpdating(record)) {
+    if (isRecordFavoriteUpdating(record)) {
       return;
     }
 
@@ -419,8 +419,8 @@ export function MasonryGalleryView<TCursor>({
       });
     } catch (error) {
       const label = nextFavorited
-        ? "Failed to favorite Civitai image"
-        : "Failed to unfavorite Civitai image";
+        ? "Failed to favorite Civitai resource"
+        : "Failed to unfavorite Civitai resource";
       logError(error, label);
     } finally {
       setFavoriteUpdatingPaths((current) => {
@@ -558,7 +558,7 @@ export function MasonryGalleryView<TCursor>({
             <Icons.PaintBrush />
             <span>编辑</span>
           </button>
-          {favoriteRecord && contextMenu.record.mediaType === "image" ? (
+          {favoriteRecord ? (
             <button
               type="button"
               disabled={contextMenuFavoriteUpdating || (contextMenuFavorited && !unfavoriteRecord)}

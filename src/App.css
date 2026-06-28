@@ -1333,10 +1333,12 @@ textarea:focus {
 }
 
 .video-tile-kind-mark {
-  color: rgba(255, 255, 255, 0.88);
+  color: #9fd2ff;
+  background: rgba(12, 20, 31, 0.72);
 }
 
 .video-tile-kind-mark svg {
+  stroke: currentColor;
   transform: translateX(0.5px);
 }
 
