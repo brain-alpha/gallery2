@@ -49,6 +49,7 @@ export interface SettingsState {
   imageCount: number;
   dbPath: string;
   generatedContentDir: string;
+  civitaiFavoritesDir: string;
   appVersion: string;
   thumbnailEnabled: boolean;
   thumbnailDir: string;

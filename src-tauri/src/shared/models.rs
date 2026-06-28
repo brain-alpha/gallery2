@@ -55,6 +55,7 @@ pub(crate) struct SettingsState {
     pub(crate) image_count: i64,
     pub(crate) db_path: String,
     pub(crate) generated_content_dir: String,
+    pub(crate) civitai_favorites_dir: String,
     pub(crate) app_version: String,
     pub(crate) thumbnail_enabled: bool,
     pub(crate) thumbnail_dir: String,

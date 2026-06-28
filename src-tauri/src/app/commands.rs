@@ -21,14 +21,14 @@ use crate::{
         path_utils::{canonical_user_path, user_path_buf, user_path_string},
     },
     storage::{
-        asset_scope::{refresh_asset_scope_with_conn, source_roots_from_conn},
+        asset_scope::{refresh_asset_scope, refresh_asset_scope_with_conn, source_roots_from_conn},
         config::{
-            configured_generated_content_dir, configured_thumbnail_dir, current_platform,
-            default_thumbnail_dir, get_gallery_preferences_from_app,
-            get_gallery_preferences_from_conn, normalize_gallery_mode,
-            normalize_gallery_preferences, persist_windows_close_behavior,
-            persist_windows_startup_settings, thumbnail_enabled, windows_close_behavior,
-            windows_startup_settings,
+            configured_civitai_favorites_dir, configured_generated_content_dir,
+            configured_thumbnail_dir, current_platform, default_thumbnail_dir,
+            get_gallery_preferences_from_app, get_gallery_preferences_from_conn,
+            normalize_gallery_mode, normalize_gallery_preferences, persist_civitai_favorites_dir,
+            persist_windows_close_behavior, persist_windows_startup_settings, thumbnail_enabled,
+            windows_close_behavior, windows_startup_settings,
         },
         db::{open_db, read_config, write_config},
         paths::db_path,
@@ -114,6 +114,7 @@ pub(crate) fn get_settings(app: tauri::AppHandle) -> Result<SettingsState, Strin
         image_count,
         db_path: user_path_string(&db_path(&app)?),
         generated_content_dir: user_path_string(&configured_generated_content_dir(&app, &conn)?),
+        civitai_favorites_dir: user_path_string(&configured_civitai_favorites_dir(&app, &conn)?),
         app_version: app.package_info().version.to_string(),
         thumbnail_enabled: thumbnail_enabled(&conn)?,
         thumbnail_dir: user_path_string(&configured_thumbnail_dir(&app, &conn)?),
@@ -238,6 +239,16 @@ pub(crate) fn save_xai_settings(
     generated_content_dir: String,
 ) -> Result<(), String> {
     xai::save_xai_settings(app, xai_key, generated_content_dir)
+}
+
+#[tauri::command]
+pub(crate) fn save_civitai_favorites_dir(
+    app: tauri::AppHandle,
+    civitai_favorites_dir: String,
+) -> Result<String, String> {
+    let dir = persist_civitai_favorites_dir(&app, civitai_favorites_dir)?;
+    refresh_asset_scope(&app)?;
+    Ok(user_path_string(&dir))
 }
 
 #[tauri::command]
@@ -376,6 +387,30 @@ pub(crate) async fn pick_generated_content_folder(
             path.into_path()
                 .map(|path| user_path_string(&path))
                 .map_err(|err| format!("Failed to resolve generated content folder: {err}"))
+        })
+        .transpose()
+}
+
+#[tauri::command]
+pub(crate) async fn pick_civitai_favorites_folder(
+    window: tauri::Window,
+) -> Result<Option<String>, String> {
+    let folder = tauri::async_runtime::spawn_blocking(move || {
+        window
+            .dialog()
+            .file()
+            .set_parent(&window)
+            .set_title("选择 Civitai 收藏保存位置")
+            .blocking_pick_folder()
+    })
+    .await
+    .map_err(|err| format!("Failed to open folder picker: {err}"))?;
+
+    folder
+        .map(|path| {
+            path.into_path()
+                .map(|path| user_path_string(&path))
+                .map_err(|err| format!("Failed to resolve Civitai favorites folder: {err}"))
         })
         .transpose()
 }

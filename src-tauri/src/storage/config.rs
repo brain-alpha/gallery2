@@ -19,9 +19,11 @@ use aes_gcm::{
 };
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
-use std::{env, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 
 const ENCRYPTED_XAI_KEY_PREFIX: &str = "enc:v1:";
+const CIVITAI_FAVORITES_DIR_CONFIG_KEY: &str = "civitai_favorites_dir";
+pub(crate) const CIVITAI_FAVORITES_DIR_NAME: &str = "civitai-favorites";
 pub(crate) const WINDOWS_CLOSE_BEHAVIOR_CONFIG_KEY: &str = "windows_close_behavior";
 pub(crate) const WINDOWS_CLOSE_BEHAVIOR_ASK: &str = "ask";
 pub(crate) const WINDOWS_CLOSE_BEHAVIOR_EXIT: &str = "exit";
@@ -76,6 +78,60 @@ pub(crate) fn configured_thumbnail_dir(
     let stored = read_config(conn, "thumbnail_dir", &user_path_string(&default_dir))?;
     let dir = user_path_buf(PathBuf::from(stored));
     write_config(conn, "thumbnail_dir", &user_path_string(&dir))?;
+    Ok(dir)
+}
+
+pub(crate) fn default_civitai_favorites_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join(CIVITAI_FAVORITES_DIR_NAME))
+}
+
+pub(crate) fn configured_civitai_favorites_dir(
+    app: &tauri::AppHandle,
+    conn: &Connection,
+) -> Result<PathBuf, String> {
+    let default_dir = default_civitai_favorites_dir(app)?;
+    let stored = read_config(
+        conn,
+        CIVITAI_FAVORITES_DIR_CONFIG_KEY,
+        &user_path_string(&default_dir),
+    )?;
+    let legacy_default_dir = user_path_buf(
+        configured_generated_content_dir(app, conn)?.join(CIVITAI_FAVORITES_DIR_NAME),
+    );
+    let stored_dir = user_path_buf(PathBuf::from(stored));
+    let dir = if stored_dir == legacy_default_dir {
+        default_dir
+    } else {
+        stored_dir
+    };
+    write_config(
+        conn,
+        CIVITAI_FAVORITES_DIR_CONFIG_KEY,
+        &user_path_string(&dir),
+    )?;
+    Ok(dir)
+}
+
+pub(crate) fn persist_civitai_favorites_dir(
+    app: &tauri::AppHandle,
+    civitai_favorites_dir: String,
+) -> Result<PathBuf, String> {
+    let conn = open_db(app)?;
+    let default_dir = default_civitai_favorites_dir(app)?;
+    let dir = if civitai_favorites_dir.trim().is_empty() {
+        default_dir
+    } else {
+        PathBuf::from(civitai_favorites_dir.trim())
+    };
+    fs::create_dir_all(&dir)
+        .map_err(|err| format!("Failed to create Civitai favorites directory: {err}"))?;
+    let dir = canonical_user_path(&dir)
+        .map_err(|err| format!("Failed to canonicalize Civitai favorites directory: {err}"))?;
+    write_config(
+        &conn,
+        CIVITAI_FAVORITES_DIR_CONFIG_KEY,
+        &user_path_string(&dir),
+    )?;
     Ok(dir)
 }
 

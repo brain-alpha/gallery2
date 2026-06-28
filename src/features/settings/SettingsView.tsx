@@ -48,6 +48,8 @@ export function SettingsView() {
   const [savedXaiKey, setSavedXaiKey] = useState('');
   const [generatedDir, setGeneratedDir] = useState('');
   const [savedGeneratedDir, setSavedGeneratedDir] = useState('');
+  const [civitaiFavoritesDir, setCivitaiFavoritesDir] = useState('');
+  const [savedCivitaiFavoritesDir, setSavedCivitaiFavoritesDir] = useState('');
   const [hasGap, setHasGap] = useState(true);
   const [savedHasGap, setSavedHasGap] = useState(true);
   const [theme, setTheme] = useState<'black' | 'white'>('white');
@@ -68,15 +70,19 @@ export function SettingsView() {
   const [updateTask, setUpdateTask] = useState<UpdateTaskName | null>(null);
   const [openingWindow, setOpeningWindow] = useState<OpenTarget | null>(null);
   const [pickingGeneratedDir, setPickingGeneratedDir] = useState(false);
+  const [pickingCivitaiFavoritesDir, setPickingCivitaiFavoritesDir] = useState(false);
   const [addingPaths, setAddingPaths] = useState(false);
   const isWindows = platform === 'windows';
 
   useEffect(() => {
-    setPageBackground('#f7f7f7');
     loadSettings().catch((error) => {
       setStatus({ message: formatErrorMessage(error, '加载失败'), tone: 'error' });
     });
   }, []);
+
+  useEffect(() => {
+    setPageBackground(settingsPageBackground(theme));
+  }, [theme]);
 
   const dirty = useMemo(() => {
     return (
@@ -86,6 +92,7 @@ export function SettingsView() {
       minColumnWidth !== savedMinColumnWidth ||
       xaiKey !== savedXaiKey ||
       generatedDir !== savedGeneratedDir ||
+      civitaiFavoritesDir !== savedCivitaiFavoritesDir ||
       (isWindows && windowsCloseBehavior !== savedWindowsCloseBehavior) ||
       (isWindows && windowsStartupEnabled !== savedWindowsStartupEnabled) ||
       (isWindows && windowsStartupDesktopBackground !== savedWindowsStartupDesktopBackground)
@@ -103,6 +110,8 @@ export function SettingsView() {
     savedXaiKey,
     generatedDir,
     savedGeneratedDir,
+    civitaiFavoritesDir,
+    savedCivitaiFavoritesDir,
     isWindows,
     windowsCloseBehavior,
     savedWindowsCloseBehavior,
@@ -129,6 +138,8 @@ export function SettingsView() {
     setSavedXaiKey(settings.xaiKey || '');
     setGeneratedDir(settings.generatedContentDir || '');
     setSavedGeneratedDir(settings.generatedContentDir || '');
+    setCivitaiFavoritesDir(settings.civitaiFavoritesDir || '');
+    setSavedCivitaiFavoritesDir(settings.civitaiFavoritesDir || '');
     setHasGap(settings.galleryHasGap);
     setSavedHasGap(settings.galleryHasGap);
     setTheme(settings.galleryTheme === 'black' ? 'black' : 'white');
@@ -148,6 +159,7 @@ export function SettingsView() {
     const galleryChanged =
       hasGap !== savedHasGap || theme !== savedTheme || minColumnWidth !== savedMinColumnWidth;
     const xaiChanged = xaiKey !== savedXaiKey || generatedDir !== savedGeneratedDir;
+    const civitaiFavoritesDirChanged = civitaiFavoritesDir !== savedCivitaiFavoritesDir;
     const closeBehaviorChanged =
       isWindows && windowsCloseBehavior !== savedWindowsCloseBehavior;
     const startupChanged =
@@ -156,6 +168,7 @@ export function SettingsView() {
         windowsStartupDesktopBackground !== savedWindowsStartupDesktopBackground);
     const sourcePathsChanged = !pathsEqual(paths, savedPaths);
     let normalizedPaths = paths;
+    let storedCivitaiFavoritesDir = civitaiFavoritesDir;
     let shouldScan = false;
 
     if (galleryChanged) {
@@ -171,6 +184,11 @@ export function SettingsView() {
       await invoke('save_xai_settings', {
         xaiKey,
         generatedContentDir: generatedDir,
+      });
+    }
+    if (civitaiFavoritesDirChanged) {
+      storedCivitaiFavoritesDir = await invoke<string>('save_civitai_favorites_dir', {
+        civitaiFavoritesDir,
       });
     }
     const storedWindowsCloseBehavior = closeBehaviorChanged
@@ -200,6 +218,8 @@ export function SettingsView() {
     setSavedMinColumnWidth(minColumnWidth);
     setSavedXaiKey(xaiKey);
     setSavedGeneratedDir(generatedDir);
+    setCivitaiFavoritesDir(storedCivitaiFavoritesDir);
+    setSavedCivitaiFavoritesDir(storedCivitaiFavoritesDir);
     setWindowsCloseBehavior(storedWindowsCloseBehavior);
     setSavedWindowsCloseBehavior(storedWindowsCloseBehavior);
     setWindowsStartupEnabled(storedWindowsStartup.startupEnabled);
@@ -246,6 +266,18 @@ export function SettingsView() {
       setStatus({ message: formatErrorMessage(error, '选择目录失败'), tone: 'error' });
     } finally {
       setPickingGeneratedDir(false);
+    }
+  }
+
+  async function handlePickCivitaiFavoritesDir() {
+    setPickingCivitaiFavoritesDir(true);
+    try {
+      const selectedPath = await invoke<string | null>('pick_civitai_favorites_folder');
+      if (selectedPath) setCivitaiFavoritesDir(selectedPath);
+    } catch (error) {
+      setStatus({ message: formatErrorMessage(error, '选择 Civitai 收藏保存位置失败'), tone: 'error' });
+    } finally {
+      setPickingCivitaiFavoritesDir(false);
     }
   }
 
@@ -406,7 +438,7 @@ export function SettingsView() {
   }
 
   return (
-    <main className="settings-shell">
+    <main className={`settings-shell theme-${theme === 'black' ? 'black' : 'white'}`}>
       <section className="settings-panel">
         <div className="settings-header">
           <h1>设置</h1>
@@ -520,6 +552,24 @@ export function SettingsView() {
                 <Icons.Folder />
               </button>
               <output className="single-path-value">{generatedDir}</output>
+            </div>
+          </div>
+
+          <div className="field">
+            <span className="field-head">
+              <span className="field-label">Civitai 收藏保存位置</span>
+            </span>
+            <div className="single-path-row">
+              <button
+                className="secondary-button icon-only-button"
+                type="button"
+                aria-label="选择 Civitai 收藏保存位置"
+                disabled={pickingCivitaiFavoritesDir}
+                onClick={handlePickCivitaiFavoritesDir}
+              >
+                <Icons.Folder />
+              </button>
+              <output className="single-path-value">{civitaiFavoritesDir}</output>
             </div>
           </div>
 
@@ -744,4 +794,8 @@ export function SettingsView() {
 
 function pathsEqual(left: string[], right: string[]) {
   return left.length === right.length && left.every((path, index) => path === right[index]);
+}
+
+function settingsPageBackground(theme: 'black' | 'white') {
+  return theme === 'black' ? '#1a1b1e' : '#f4f6f7';
 }

@@ -5,7 +5,10 @@
 use crate::{
     shared::path_utils::user_path_buf,
     storage::{
-        config::{configured_generated_content_dir, configured_thumbnail_dir},
+        config::{
+            configured_civitai_favorites_dir, configured_generated_content_dir,
+            configured_thumbnail_dir,
+        },
         db::open_db,
         paths::app_data_dir,
     },
@@ -82,6 +85,7 @@ pub(crate) fn refresh_asset_scope_with_conn(
     let mut roots = source_roots_from_conn(conn)?;
     roots.push(app_data_dir(app)?);
     roots.push(configured_generated_content_dir(app, conn)?);
+    roots.push(configured_civitai_favorites_dir(app, conn)?);
     roots.push(configured_thumbnail_dir(app, conn)?);
 
     let scope = app.asset_protocol_scope();

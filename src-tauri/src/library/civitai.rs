@@ -7,7 +7,7 @@ use crate::{
         path_utils::user_path_string,
     },
     storage::{
-        asset_scope::allow_asset_directory, config::configured_generated_content_dir, db::open_db,
+        asset_scope::allow_asset_directory, config::configured_civitai_favorites_dir, db::open_db,
     },
 };
 use reqwest::{header::CONTENT_TYPE, StatusCode};
@@ -23,7 +23,6 @@ const CIVITAI_IMAGES_ENDPOINT: &str = "https://civitai.com/api/v1/images";
 const CIVITAI_PERIOD: &str = "Month";
 const CIVITAI_SORT: &str = "Most Reactions";
 const CIVITAI_BROWSING_LEVEL_SAFE_AND_SOFT: &str = "3";
-const CIVITAI_FAVORITES_DIR_NAME: &str = "civitai-favorites";
 const CIVITAI_FAVORITE_FILE_PREFIX: &str = "civitai";
 
 #[derive(Debug, Deserialize)]
@@ -312,7 +311,7 @@ async fn download_civitai_media(url: &str) -> Result<DownloadedCivitaiMedia, Str
 
 fn civitai_favorites_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let conn = open_db(app)?;
-    Ok(configured_generated_content_dir(app, &conn)?.join(CIVITAI_FAVORITES_DIR_NAME))
+    configured_civitai_favorites_dir(app, &conn)
 }
 
 fn existing_favorite_path(favorite_dir: &Path, image_id: i64) -> Option<PathBuf> {
