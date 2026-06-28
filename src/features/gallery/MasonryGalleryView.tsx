@@ -28,6 +28,8 @@ export interface GalleryDataPage<TCursor> {
 interface MasonryGalleryViewProps<TCursor> {
   loadPage: (cursor: TCursor | null, limit: number) => Promise<GalleryDataPage<TCursor>>;
   pageSize?: number;
+  favoriteRecord?: (record: ImageRecord) => Promise<unknown>;
+  tileImageLoadDelayMs?: number;
 }
 
 interface ContextMenuState {
@@ -36,15 +38,23 @@ interface ContextMenuState {
   record: ImageRecord;
 }
 
-export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_SIZE }: MasonryGalleryViewProps<TCursor>) {
+export function MasonryGalleryView<TCursor>({
+  loadPage,
+  pageSize = DEFAULT_PAGE_SIZE,
+  favoriteRecord,
+  tileImageLoadDelayMs = 0,
+}: MasonryGalleryViewProps<TCursor>) {
   const [preferences, setPreferences] = useState<GalleryPreferences | null>(null);
   const initialTheme = useMemo(() => storedGalleryTheme(), []);
   const [records, setRecords] = useState<ImageRecord[]>([]);
   const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { viewport, isResizing } = useGalleryViewport();
   const [preview, setPreview] = useState<PreviewState>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [selectedReferenceRecords, setSelectedReferenceRecords] = useState<ImageRecord[]>([]);
+  const [favoritedPaths, setFavoritedPaths] = useState<Set<string>>(() => new Set());
+  const [favoritingPaths, setFavoritingPaths] = useState<Set<string>>(() => new Set());
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<EditorDrawerHandle | null>(null);
   const loadingRef = useRef(false);
@@ -158,7 +168,9 @@ export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_
     () => buildLayout(records, viewport.width, gapSize, minColumnWidth),
     [records, viewport.width, gapSize, minColumnWidth],
   );
-  const masonryHeight = layoutItems.reduce((height, item) => Math.max(height, item.bottom + gapSize), gapSize);
+  const masonryHeight = layoutItems.length === 0
+    ? 0
+    : layoutItems.reduce((height, item) => Math.max(height, item.bottom + gapSize), gapSize);
   const visibleIndexes = useMemo(() => {
     const minVisible = Math.max(0, viewport.scrollY - OVERSCAN);
     const maxVisible = viewport.scrollY + viewport.height + OVERSCAN;
@@ -176,6 +188,7 @@ export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_
   async function loadMore() {
     if (loadingRef.current || doneRef.current) return;
     loadingRef.current = true;
+    setLoading(true);
     try {
       const page = await loadPage(cursorRef.current, pageSize);
       const items = page.items;
@@ -190,6 +203,7 @@ export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_
       setDone(nextDone);
     } finally {
       loadingRef.current = false;
+      setLoading(false);
     }
   }
 
@@ -289,7 +303,7 @@ export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_
     }
     setPreview(null);
     const menuWidth = 118;
-    const menuHeight = 40;
+    const menuHeight = favoriteRecord && record.mediaType === "image" ? 74 : 40;
     const left = Math.min(event.clientX, window.innerWidth - menuWidth - 8);
     const top = Math.min(event.clientY, window.innerHeight - menuHeight - 8);
     setContextMenu({
@@ -297,6 +311,42 @@ export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_
       top: Math.max(8, top),
       record,
     });
+  }
+
+  function isRecordFavorited(record: ImageRecord) {
+    return record.favorited || favoritedPaths.has(record.path);
+  }
+
+  function isRecordFavoriting(record: ImageRecord) {
+    return favoritingPaths.has(record.path);
+  }
+
+  async function handleFavorite(record: ImageRecord) {
+    if (!favoriteRecord || record.mediaType !== "image" || isRecordFavorited(record) || isRecordFavoriting(record)) {
+      return;
+    }
+
+    setContextMenu(null);
+    setFavoritingPaths((current) => new Set(current).add(record.path));
+    try {
+      await favoriteRecord(record);
+      setFavoritedPaths((current) => new Set(current).add(record.path));
+      setRecords((current) => {
+        const next = current.map((item) => (
+          item.path === record.path ? { ...item, favorited: true } : item
+        ));
+        recordsRef.current = next;
+        return next;
+      });
+    } catch (error) {
+      logError(error, "Failed to favorite Civitai image");
+    } finally {
+      setFavoritingPaths((current) => {
+        const next = new Set(current);
+        next.delete(record.path);
+        return next;
+      });
+    }
   }
 
   if (!preferences) {
@@ -323,9 +373,16 @@ export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_
           const layout = layoutItems[index];
           if (!record || !layout) return null;
           const selected = selectedReferenceRecords.some((item) => item.path === record.path);
+          const favorited = isRecordFavorited(record);
+          const favoriting = isRecordFavoriting(record);
           return (
             <button
-              className={classNames("image-tile", selected && "is-selected")}
+              className={classNames(
+                "image-tile",
+                selected && "is-selected",
+                favorited && "is-favorited",
+                favoriting && "is-favoriting",
+              )}
               key={record.path}
               type="button"
               style={{
@@ -344,11 +401,25 @@ export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_
                   videoIcon={<Icons.VideoCamera />}
                 />
               ) : (
-                <TileImage record={record} displayWidth={layout.width} />
+                <TileImage
+                  record={record}
+                  displayWidth={layout.width}
+                  loadDelayMs={tileImageLoadDelayMs}
+                />
               )}
               {selected ? (
                 <span className="image-tile-badge image-tile-selection-mark">
                   <Icons.PuzzlePiece />
+                </span>
+              ) : null}
+              {favoriting ? (
+                <span className="image-tile-badge image-tile-favorite-status" aria-hidden="true">
+                  <span className="favorite-status-spinner" />
+                </span>
+              ) : null}
+              {favorited && !favoriting ? (
+                <span className="image-tile-badge image-tile-favorite-mark" aria-hidden="true">
+                  <Icons.Heart />
                 </span>
               ) : null}
             </button>
@@ -366,6 +437,12 @@ export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_
             : `${Math.max(1, Math.min(240, viewport.height * 0.25))}px`,
         }}
       />
+      {loading ? (
+        <div className="gallery-loading-more" role="status" aria-live="polite">
+          <span className="gallery-loading-spinner" aria-hidden="true" />
+          <span>加载中</span>
+        </div>
+      ) : null}
 
       <PreviewOverlay preview={preview} onClose={() => setPreview(null)} />
 
@@ -385,6 +462,24 @@ export function MasonryGalleryView<TCursor>({ loadPage, pageSize = DEFAULT_PAGE_
             <Icons.PaintBrush />
             <span>编辑</span>
           </button>
+          {favoriteRecord && contextMenu.record.mediaType === "image" ? (
+            <button
+              type="button"
+              disabled={isRecordFavorited(contextMenu.record) || isRecordFavoriting(contextMenu.record)}
+              onClick={() => {
+                handleFavorite(contextMenu.record).catch((error) => logError(error, "Failed to favorite Civitai image"));
+              }}
+            >
+              <Icons.Heart />
+              <span>
+                {isRecordFavoriting(contextMenu.record)
+                  ? "收藏中"
+                  : isRecordFavorited(contextMenu.record)
+                    ? "已收藏"
+                    : "收藏"}
+              </span>
+            </button>
+          ) : null}
         </div>
       ) : null}
 

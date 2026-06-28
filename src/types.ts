@@ -4,6 +4,7 @@ export interface ImageRecord {
   path: string;
   displayPath: string;
   blurHash?: string;
+  favorited: boolean;
   mediaType: MediaType;
   width: number;
   height: number;
@@ -24,6 +25,11 @@ export interface ImagePage {
 export interface CivitaiImagePage {
   items: ImageRecord[];
   nextCursor: string | null;
+}
+
+export interface CivitaiFavoriteResult {
+  path: string;
+  alreadyFavorited: boolean;
 }
 
 export type WindowsCloseBehavior = "ask" | "exit" | "tray";

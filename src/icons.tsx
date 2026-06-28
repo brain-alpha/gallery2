@@ -5,6 +5,7 @@ import {
   Download,
   ExternalLink,
   Folder,
+  Heart,
   Paintbrush,
   Plus,
   Puzzle,
@@ -15,6 +16,7 @@ import {
 
 export const Icons = {
   Folder,
+  Heart,
   PaintBrush: Paintbrush,
   ArrowUp,
   Plus,

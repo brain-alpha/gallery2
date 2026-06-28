@@ -11,6 +11,7 @@ pub(crate) struct ImageRecord {
     pub(crate) display_path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) blur_hash: Option<String>,
+    pub(crate) favorited: bool,
     pub(crate) media_type: String,
     pub(crate) width: u32,
     pub(crate) height: u32,
@@ -37,6 +38,13 @@ pub(crate) struct ImagePage {
 pub(crate) struct CivitaiImagePage {
     pub(crate) items: Vec<ImageRecord>,
     pub(crate) next_cursor: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CivitaiFavoriteResult {
+    pub(crate) path: String,
+    pub(crate) already_favorited: bool,
 }
 
 #[derive(Debug, Serialize)]

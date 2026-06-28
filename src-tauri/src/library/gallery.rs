@@ -174,6 +174,7 @@ fn image_record_from_raw(
         path: record.path,
         display_path,
         blur_hash: None,
+        favorited: false,
         media_type: record.media_type,
         width: record.width,
         height: record.height,

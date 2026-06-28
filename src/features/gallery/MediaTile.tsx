@@ -11,10 +11,19 @@ export type PreviewState =
   | { type: "video"; src: string; width: number; height: number }
   | null;
 
-export function TileImage({ record, displayWidth }: { record: ImageRecord; displayWidth?: number }) {
+export function TileImage({
+  record,
+  displayWidth,
+  loadDelayMs = 0,
+}: {
+  record: ImageRecord;
+  displayWidth?: number;
+  loadDelayMs?: number;
+}) {
   const [sourceKind, setSourceKind] = useState<"display" | "original">("display");
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [readyToLoad, setReadyToLoad] = useState(loadDelayMs <= 0);
   const displaySrc = recordDisplaySrc(record, displayWidth);
   const originalSrc = mediaSrc(record.path);
   const src = sourceKind === "display" ? displaySrc : originalSrc;
@@ -24,7 +33,12 @@ export function TileImage({ record, displayWidth }: { record: ImageRecord; displ
     setSourceKind("display");
     setLoaded(false);
     setFailed(false);
-  }, [displaySrc, originalSrc]);
+    setReadyToLoad(loadDelayMs <= 0);
+    if (loadDelayMs <= 0) return;
+
+    const timer = window.setTimeout(() => setReadyToLoad(true), loadDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [displaySrc, originalSrc, loadDelayMs]);
 
   function handleError() {
     if (sourceKind === "display" && displaySrc !== originalSrc) {
@@ -49,7 +63,7 @@ export function TileImage({ record, displayWidth }: { record: ImageRecord; displ
         loading="lazy"
         decoding="async"
         draggable={false}
-        src={src}
+        src={readyToLoad ? src : undefined}
         alt=""
         onLoad={() => {
           setLoaded(true);

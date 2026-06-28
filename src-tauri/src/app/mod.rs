@@ -236,7 +236,8 @@ pub fn run() {
             commands::save_editor_session,
             commands::list_images,
             commands::list_random_images,
-            commands::list_civitai_images
+            commands::list_civitai_images,
+            commands::favorite_civitai_image
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

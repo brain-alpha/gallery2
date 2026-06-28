@@ -544,8 +544,18 @@ pub(crate) fn list_random_images(
 
 #[tauri::command]
 pub(crate) async fn list_civitai_images(
+    app: tauri::AppHandle,
     cursor: Option<String>,
     limit: i64,
 ) -> Result<CivitaiImagePage, String> {
-    civitai::list_images(cursor, limit).await
+    civitai::list_images(app, cursor, limit).await
+}
+
+#[tauri::command]
+pub(crate) async fn favorite_civitai_image(
+    app: tauri::AppHandle,
+    image_id: i64,
+    url: String,
+) -> Result<CivitaiFavoriteResult, String> {
+    civitai::favorite_image(app, image_id, url).await
 }
