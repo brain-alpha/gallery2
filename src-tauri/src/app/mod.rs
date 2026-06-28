@@ -22,21 +22,22 @@ use crate::{
     },
     window::show_window,
 };
-use labels::{CAROUSEL_LABEL, GALLERY_LABEL, SETTINGS_LABEL};
+use labels::{CAROUSEL_LABEL, CIVITAI_LABEL, GALLERY_LABEL, SETTINGS_LABEL};
 use state::{KeepAwake, KeepAwakeState, ThumbnailProgressState, WindowsFullscreenRestoreState};
 use std::{
     collections::HashSet,
     sync::{Arc, Mutex},
 };
 use tauri::{
-    Manager,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
+    Manager,
 };
 
 const SETTINGS_MENU_ID: &str = "open_settings";
 const GALLERY_MENU_ID: &str = "open_gallery";
 const CAROUSEL_MENU_ID: &str = "open_carousel";
+const CIVITAI_MENU_ID: &str = "open_civitai";
 const DESKTOP_BACKGROUND_MENU_ID: &str = "toggle_desktop_background";
 const QUIT_MENU_ID: &str = "quit";
 
@@ -123,6 +124,7 @@ pub fn run() {
             let settings = MenuItem::with_id(app, SETTINGS_MENU_ID, "设置", true, None::<&str>)?;
             let gallery = MenuItem::with_id(app, GALLERY_MENU_ID, "瀑布流", true, None::<&str>)?;
             let carousel = MenuItem::with_id(app, CAROUSEL_MENU_ID, "走马灯", true, None::<&str>)?;
+            let civitai = MenuItem::with_id(app, CIVITAI_MENU_ID, "Civitai", true, None::<&str>)?;
             let desktop_background = MenuItem::with_id(
                 app,
                 DESKTOP_BACKGROUND_MENU_ID,
@@ -139,6 +141,7 @@ pub fn run() {
                     &settings,
                     &gallery,
                     &carousel,
+                    &civitai,
                     &desktop_background_top_separator,
                     &desktop_background,
                     &desktop_background_bottom_separator,
@@ -174,6 +177,7 @@ pub fn run() {
                         SETTINGS_MENU_ID => Some(SETTINGS_LABEL),
                         GALLERY_MENU_ID => Some(GALLERY_LABEL),
                         CAROUSEL_MENU_ID => Some(CAROUSEL_LABEL),
+                        CIVITAI_MENU_ID => Some(CIVITAI_LABEL),
                         _ => None,
                     };
                     if let Some(label) = label {
@@ -199,6 +203,7 @@ pub fn run() {
             commands::open_app_window,
             commands::open_gallery_from_settings,
             commands::open_carousel_from_settings,
+            commands::open_civitai_from_settings,
             commands::set_current_window_fullscreen,
             commands::get_settings,
             commands::get_gallery_preferences,
@@ -230,7 +235,8 @@ pub fn run() {
             commands::load_editor_session,
             commands::save_editor_session,
             commands::list_images,
-            commands::list_random_images
+            commands::list_random_images,
+            commands::list_civitai_images
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

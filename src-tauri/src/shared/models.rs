@@ -32,6 +32,13 @@ pub(crate) struct ImagePage {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct CivitaiImagePage {
+    pub(crate) items: Vec<ImageRecord>,
+    pub(crate) next_cursor: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct SettingsState {
     pub(crate) platform: String,
     pub(crate) paths: Vec<String>,

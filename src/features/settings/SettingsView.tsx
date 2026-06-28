@@ -25,7 +25,7 @@ import {
 type StatusTone = '' | 'ok' | 'error';
 type TaskName = 'scan' | 'dedupe' | 'repair';
 type UpdateTaskName = 'check' | 'install';
-type OpenTarget = 'gallery' | 'carousel';
+type OpenTarget = 'gallery' | 'carousel' | 'civitai';
 
 interface StatusState {
   message: string;
@@ -393,6 +393,18 @@ export function SettingsView() {
     }
   }
 
+  async function handleOpenCivitai() {
+    if (openingWindow) return;
+    setOpeningWindow('civitai');
+    try {
+      await invoke('open_civitai_from_settings');
+    } catch (error) {
+      setStatus({ message: formatErrorMessage(error, '打开失败'), tone: 'error' });
+    } finally {
+      setOpeningWindow(null);
+    }
+  }
+
   return (
     <main className="settings-shell">
       <section className="settings-panel">
@@ -416,6 +428,15 @@ export function SettingsView() {
             >
               <Icons.ArrowTopRight />
               <span>打开走马灯</span>
+            </button>
+            <button
+              className="secondary-button icon-button"
+              type="button"
+              disabled={openingWindow !== null}
+              onClick={handleOpenCivitai}
+            >
+              <Icons.ArrowTopRight />
+              <span>打开 Civitai</span>
             </button>
           </div>
         </div>

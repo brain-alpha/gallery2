@@ -1,5 +1,5 @@
 //! 普通应用窗口生命周期控制。
-//! 负责 settings/gallery/carousel 窗口的创建、显示、关闭策略、全屏恢复和走马灯保持唤醒。
+//! 负责 settings/gallery/carousel/civitai 窗口的创建、显示、关闭策略、全屏恢复和走马灯保持唤醒。
 //! 桌面背景窗口独立放在 window::desktop_background，避免平台挂载逻辑混入普通窗口流程。
 
 #[cfg(target_os = "windows")]
@@ -13,8 +13,8 @@ use crate::storage::{
 use crate::{
     app::{
         labels::{
-            is_gallery_window, CAROUSEL_LABEL, DESKTOP_BACKGROUND_LABEL, GALLERY_LABEL,
-            SETTINGS_LABEL,
+            is_gallery_window, CAROUSEL_LABEL, CIVITAI_LABEL, DESKTOP_BACKGROUND_LABEL,
+            GALLERY_LABEL, SETTINGS_LABEL,
         },
         state::{KeepAwakeState, WindowsFullscreenRestoreState},
     },
@@ -90,6 +90,7 @@ pub(crate) fn show_window(app: &tauri::AppHandle, label: &str) -> Result<(), Str
         SETTINGS_LABEL => ("Gallery Settings", "settings", 760.0, 620.0),
         GALLERY_LABEL => ("Gallery", "gallery", 1240.0, 860.0),
         CAROUSEL_LABEL => ("Carousel", "carousel", 1240.0, 860.0),
+        CIVITAI_LABEL => ("Civitai", "civitai", 1240.0, 860.0),
         _ => return Err(format!("Unknown window label: {label}")),
     };
 

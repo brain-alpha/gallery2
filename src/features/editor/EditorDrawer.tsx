@@ -172,7 +172,7 @@ export const EditorDrawer = forwardRef<EditorDrawerHandle, EditorDrawerProps>(fu
     const token = nextSessionToken();
     const sourceAttachments = records.map((item) => createAttachment({
       path: item.path,
-      dataUrl: convertFileSrc(item.path),
+      dataUrl: sourceForImageRecord(item),
     }));
     const attachments = sourceAttachments.filter(Boolean) as Attachment[];
     if (!attachments.length) return;
@@ -597,6 +597,7 @@ export const EditorDrawer = forwardRef<EditorDrawerHandle, EditorDrawerProps>(fu
   function imageInputForRequest(attachment: Attachment) {
     const source = attachment.dataUrl || attachment.dataUri || "";
     if (isXaiImageInput(source)) return Promise.resolve(source);
+    if (isXaiImageInput(attachment.path)) return Promise.resolve(attachment.path);
     return readImageDataUri(attachment.path);
   }
 });
@@ -774,7 +775,13 @@ function createMessage(role: Role, content: string, attachments: Attachment[] = 
 }
 
 function sourceForAttachment(attachment: Attachment) {
-  return attachment.dataUrl || attachment.dataUri || convertFileSrc(attachment.path || "");
+  if (attachment.dataUrl || attachment.dataUri) return attachment.dataUrl || attachment.dataUri || "";
+  return isRemoteImageInput(attachment.path) ? attachment.path : convertFileSrc(attachment.path || "");
+}
+
+function sourceForImageRecord(record: ImageRecord) {
+  const path = record.displayPath || record.path;
+  return isRemoteImageInput(path) ? path : convertFileSrc(path);
 }
 
 function normalizePersistedMessages(messages: Message[]) {
@@ -836,6 +843,10 @@ function toggleAttachment(current: Attachment[], attachment: Attachment) {
 
 function isXaiImageInput(value: string) {
   return /^data:image\/[a-z0-9.+-]+;base64,/iu.test(value) || /^https:\/\//iu.test(value);
+}
+
+function isRemoteImageInput(value: string) {
+  return /^https?:\/\//iu.test(value);
 }
 
 function isXaiKeyStatusError(error: unknown) {

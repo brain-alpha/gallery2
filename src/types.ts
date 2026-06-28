@@ -20,6 +20,11 @@ export interface ImagePage {
   nextCursor: ImageCursor | null;
 }
 
+export interface CivitaiImagePage {
+  items: ImageRecord[];
+  nextCursor: string | null;
+}
+
 export type WindowsCloseBehavior = "ask" | "exit" | "tray";
 
 export interface SettingsState {

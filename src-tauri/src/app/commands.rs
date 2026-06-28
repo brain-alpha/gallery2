@@ -5,13 +5,13 @@
 #[cfg(desktop)]
 use super::updates;
 use super::{
-    labels::{CAROUSEL_LABEL, DESKTOP_BACKGROUND_LABEL, GALLERY_LABEL},
+    labels::{CAROUSEL_LABEL, CIVITAI_LABEL, DESKTOP_BACKGROUND_LABEL, GALLERY_LABEL},
     state::{KeepAwakeState, ThumbnailProgressState, WindowsFullscreenRestoreState},
 };
 use crate::{
     editor::{session, xai},
     library::{
-        gallery,
+        civitai, gallery,
         media::is_supported_image,
         scanner,
         source_paths::{collect_roots, replace_source_paths, user_path_strings},
@@ -74,6 +74,14 @@ pub(crate) async fn open_gallery_from_settings(app: tauri::AppHandle) -> Result<
 pub(crate) async fn open_carousel_from_settings(app: tauri::AppHandle) -> Result<(), String> {
     window::run_window_task(app, "open carousel from settings", move |app| {
         window::show_window_from_settings(&app, CAROUSEL_LABEL)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn open_civitai_from_settings(app: tauri::AppHandle) -> Result<(), String> {
+    window::run_window_task(app, "open civitai from settings", move |app| {
+        window::show_window_from_settings(&app, CIVITAI_LABEL)
     })
     .await
 }
@@ -164,6 +172,12 @@ pub(crate) fn save_gallery_preferences(
         window
             .eval("window.location.reload()")
             .map_err(|err| format!("Failed to reload carousel window: {err}"))?;
+    }
+    if let Some(window) = app.get_webview_window(CIVITAI_LABEL) {
+        window::apply_gallery_window_preferences(&window, &preferences)?;
+        window
+            .eval("window.location.reload()")
+            .map_err(|err| format!("Failed to reload civitai window: {err}"))?;
     }
     if let Some(window) = app.get_webview_window(DESKTOP_BACKGROUND_LABEL) {
         window::apply_gallery_window_preferences(&window, &preferences)?;
@@ -526,4 +540,12 @@ pub(crate) fn list_random_images(
     limit: i64,
 ) -> Result<Vec<ImageRecord>, String> {
     gallery::list_random_images(app, limit)
+}
+
+#[tauri::command]
+pub(crate) async fn list_civitai_images(
+    cursor: Option<String>,
+    limit: i64,
+) -> Result<CivitaiImagePage, String> {
+    civitai::list_images(cursor, limit).await
 }

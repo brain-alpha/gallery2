@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo } from "react";
 import { CarouselView } from "./features/gallery/CarouselView";
+import { CivitaiGalleryView } from "./features/gallery/CivitaiGalleryView";
 import { GalleryView } from "./features/gallery/GalleryView";
 import { SettingsView } from "./features/settings/SettingsView";
 import "./App.css";
@@ -29,6 +30,7 @@ function App() {
   if (view === "settings") return <SettingsView />;
   if (view === "desktop") return <CarouselView desktopBackground />;
   if (view === "carousel") return <CarouselView />;
+  if (view === "civitai") return <CivitaiGalleryView />;
   return <GalleryView />;
 }
 
