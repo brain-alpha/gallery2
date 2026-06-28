@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { EditorDrawer, type EditorDrawerHandle } from "../editor/EditorDrawer";
 import { Icons } from "../../icons";
 import type {
@@ -26,6 +26,7 @@ const DEFAULT_PAGE_SIZE = 50;
 const OVERSCAN = 1200;
 const MAX_REFERENCE_SELECTION = 3;
 const MAX_PLAYING_TILE_VIDEOS = 10;
+const TOOLBAR_HOVER_ZONE_HEIGHT = 48;
 
 export interface GalleryDataPage<TCursor> {
   items: ImageRecord[];
@@ -35,6 +36,9 @@ export interface GalleryDataPage<TCursor> {
 interface MasonryGalleryViewProps<TCursor> {
   loadPage: (cursor: TCursor | null, limit: number) => Promise<GalleryDataPage<TCursor>>;
   pageSize?: number;
+  reloadKey?: string | number;
+  toolbar?: ReactNode;
+  toolbarPinned?: boolean;
   favoriteRecord?: (record: ImageRecord) => Promise<unknown>;
   unfavoriteRecord?: (record: ImageRecord) => Promise<unknown>;
   tileImageLoadDelayMs?: number;
@@ -50,6 +54,9 @@ interface ContextMenuState {
 export function MasonryGalleryView<TCursor>({
   loadPage,
   pageSize = DEFAULT_PAGE_SIZE,
+  reloadKey,
+  toolbar,
+  toolbarPinned = false,
   favoriteRecord,
   unfavoriteRecord,
   tileImageLoadDelayMs = 0,
@@ -63,6 +70,7 @@ export function MasonryGalleryView<TCursor>({
   const { viewport, isResizing } = useGalleryViewport();
   const [preview, setPreview] = useState<PreviewState>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [toolbarVisible, setToolbarVisible] = useState(false);
   const [selectedReferenceRecords, setSelectedReferenceRecords] = useState<ImageRecord[]>([]);
   const [favoriteOverrides, setFavoriteOverrides] = useState<Map<string, boolean>>(() => new Map());
   const [favoriteUpdatingPaths, setFavoriteUpdatingPaths] = useState<Set<string>>(() => new Set());
@@ -72,8 +80,13 @@ export function MasonryGalleryView<TCursor>({
   const doneRef = useRef(false);
   const recordsRef = useRef<ImageRecord[]>([]);
   const cursorRef = useRef<TCursor | null>(null);
+  const loadPageRef = useRef(loadPage);
+  const pageSizeRef = useRef(pageSize);
+  const requestVersionRef = useRef(0);
+  const didMountReloadKeyRef = useRef(false);
   const selectedReferenceRecordsRef = useRef<ImageRecord[]>([]);
   const playingVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const hasToolbar = toolbar !== undefined && toolbar !== null;
 
   useEffect(() => {
     setPageBackground(initialTheme === "black" ? "#1a1b1e" : "#ffffff");
@@ -94,6 +107,14 @@ export function MasonryGalleryView<TCursor>({
   useEffect(() => {
     selectedReferenceRecordsRef.current = selectedReferenceRecords;
   }, [selectedReferenceRecords]);
+
+  useEffect(() => {
+    loadPageRef.current = loadPage;
+  }, [loadPage]);
+
+  useEffect(() => {
+    pageSizeRef.current = pageSize;
+  }, [pageSize]);
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -128,6 +149,32 @@ export function MasonryGalleryView<TCursor>({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [contextMenu, preview]);
+
+  useEffect(() => {
+    if (reloadKey === undefined) return;
+    if (!didMountReloadKeyRef.current) {
+      didMountReloadKeyRef.current = true;
+      return;
+    }
+
+    reloadFirstPage({ scrollToTop: true }).catch((error) => logError(error, "Failed to reload gallery page"));
+  }, [reloadKey]);
+
+  useEffect(() => {
+    if (!hasToolbar) return;
+    if (toolbarPinned) {
+      setToolbarVisible(true);
+      return;
+    }
+
+    setToolbarVisible(false);
+    const updateToolbarVisibility = (event: MouseEvent) => {
+      setToolbarVisible(event.clientY <= TOOLBAR_HOVER_ZONE_HEIGHT);
+    };
+
+    window.addEventListener("mousemove", updateToolbarVisibility);
+    return () => window.removeEventListener("mousemove", updateToolbarVisibility);
+  }, [hasToolbar, toolbarPinned]);
 
   useEffect(() => {
     loadMore().catch((error) => logError(error, "Failed to load gallery page"));
@@ -198,10 +245,12 @@ export function MasonryGalleryView<TCursor>({
 
   async function loadMore() {
     if (loadingRef.current || doneRef.current) return;
+    const requestVersion = requestVersionRef.current;
     loadingRef.current = true;
     setLoading(true);
     try {
-      const page = await loadPage(cursorRef.current, pageSize);
+      const page = await loadPageRef.current(cursorRef.current, pageSizeRef.current);
+      if (requestVersion !== requestVersionRef.current) return;
       const items = page.items;
       setRecords((current) => {
         const next = [...current, ...items];
@@ -213,20 +262,31 @@ export function MasonryGalleryView<TCursor>({
       doneRef.current = nextDone;
       setDone(nextDone);
     } finally {
-      loadingRef.current = false;
-      setLoading(false);
+      if (requestVersion === requestVersionRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
   }
 
-  async function reloadFirstPage() {
-    if (loadingRef.current) return;
+  function scrollToGalleryTop() {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }
+
+  async function reloadFirstPage({ scrollToTop = false }: { scrollToTop?: boolean } = {}) {
+    requestVersionRef.current += 1;
     cursorRef.current = null;
+    loadingRef.current = false;
     doneRef.current = false;
+    if (scrollToTop) scrollToGalleryTop();
+    setLoading(false);
     setDone(false);
     if (recordsRef.current.length > 0) {
       recordsRef.current = [];
       setRecords([]);
     }
+    setFavoriteOverrides(new Map());
+    setFavoriteUpdatingPaths(new Set());
     await loadMore();
   }
 
@@ -384,6 +444,7 @@ export function MasonryGalleryView<TCursor>({
       className={classNames(
         "gallery-shell",
         preferences.hasGap ? "gallery-gap" : "gallery-flush",
+        hasToolbar && "has-gallery-toolbar",
         isResizing && "is-window-resizing",
         themeClass,
       )}
@@ -391,6 +452,16 @@ export function MasonryGalleryView<TCursor>({
         if (!(event.target as Element).closest("#editor-drawer")) event.preventDefault();
       }}
     >
+      {hasToolbar ? (
+        <div
+          className={classNames(
+            "gallery-filter-toolbar",
+            !toolbarVisible && "is-hidden",
+          )}
+        >
+          {toolbar}
+        </div>
+      ) : null}
       <section className="masonry" style={{ height: `${masonryHeight}px` }}>
         {visibleIndexes.map((index) => {
           const record = records[index];

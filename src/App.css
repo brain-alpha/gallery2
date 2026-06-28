@@ -676,6 +676,17 @@ textarea:focus {
   --editor-accent: #3f3f3f;
   --editor-accent-soft: rgba(23, 23, 23, 0.08);
   --editor-shadow: 0 24px 80px rgba(18, 18, 18, 0.16);
+  --civitai-popover-text: rgba(25, 27, 31, 0.92);
+  --civitai-popover-muted: rgba(25, 27, 31, 0.58);
+  --civitai-popover-surface: rgba(255, 255, 255, 0.62);
+  --civitai-popover-highlight: rgba(255, 255, 255, 0.44);
+  --civitai-popover-shadow: 0 20px 64px rgba(22, 24, 28, 0.18);
+  --civitai-control-surface: rgba(255, 255, 255, 0.52);
+  --civitai-control-surface-hover: rgba(255, 255, 255, 0.74);
+  --civitai-control-active-surface: rgba(28, 30, 34, 0.12);
+  --civitai-control-active-text: rgba(19, 21, 24, 0.96);
+  --civitai-apply-surface: rgba(23, 25, 28, 0.9);
+  --civitai-apply-text: #ffffff;
 }
 
 .gallery-shell.theme-black {
@@ -712,12 +723,195 @@ textarea:focus {
   --editor-accent: #e0e0e0;
   --editor-accent-soft: rgba(255, 255, 255, 0.14);
   --editor-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+  --civitai-popover-text: rgba(248, 250, 252, 0.94);
+  --civitai-popover-muted: rgba(248, 250, 252, 0.58);
+  --civitai-popover-surface: rgba(22, 24, 27, 0.58);
+  --civitai-popover-highlight: rgba(255, 255, 255, 0.08);
+  --civitai-popover-shadow: 0 22px 68px rgba(0, 0, 0, 0.42);
+  --civitai-control-surface: rgba(255, 255, 255, 0.08);
+  --civitai-control-surface-hover: rgba(255, 255, 255, 0.14);
+  --civitai-control-active-surface: rgba(255, 255, 255, 0.18);
+  --civitai-control-active-text: #ffffff;
+  --civitai-apply-surface: rgba(248, 250, 252, 0.92);
+  --civitai-apply-text: #16181c;
 }
 
 .masonry {
   position: relative;
   width: 100%;
   padding: 0;
+}
+
+.gallery-filter-toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 135;
+  transform: translateY(0);
+  transition: transform 180ms ease;
+  pointer-events: none;
+}
+
+.gallery-filter-toolbar.is-hidden {
+  transform: translateY(calc(-100% - 8px));
+}
+
+.gallery-filter-toolbar > * {
+  pointer-events: auto;
+}
+
+.civitai-filter-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  background: transparent;
+}
+
+.civitai-filter-bar::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)),
+    rgba(10, 12, 14, 0.26);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(24px) saturate(1.65) contrast(1.04);
+  -webkit-backdrop-filter: blur(24px) saturate(1.65) contrast(1.04);
+  opacity: 1;
+  transition: opacity 220ms ease;
+}
+
+.civitai-filter-control {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 96px;
+  width: 96px;
+}
+
+.civitai-filter-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 96px;
+  height: 28px;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 6px 18px rgba(0, 0, 0, 0.12);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.civitai-filter-button span {
+  transform: translateY(1px);
+}
+
+.civitai-filter-button:hover,
+.civitai-filter-button.is-active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.civitai-filter-button svg {
+  width: 0.92rem;
+  height: 0.92rem;
+  fill: none;
+  stroke: currentColor;
+}
+
+.civitai-filter-popover {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  width: min(340px, calc(100vw - 16px));
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--civitai-popover-text, #f5f7f8);
+  background:
+    linear-gradient(180deg, var(--civitai-popover-highlight, rgba(255, 255, 255, 0.08)), rgba(255, 255, 255, 0)),
+    var(--civitai-popover-surface, rgba(26, 29, 33, 0.82));
+  box-shadow: var(--civitai-popover-shadow, 0 18px 56px rgba(0, 0, 0, 0.36));
+  backdrop-filter: blur(28px) saturate(1.6) contrast(1.03);
+  -webkit-backdrop-filter: blur(28px) saturate(1.6) contrast(1.03);
+}
+
+.civitai-filter-field + .civitai-filter-field {
+  margin-top: 12px;
+}
+
+.civitai-filter-field-title {
+  margin-bottom: 7px;
+  color: var(--civitai-popover-muted, rgba(245, 247, 248, 0.64));
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.civitai-segmented-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.civitai-segment {
+  flex: 1 1 auto;
+  min-width: 74px;
+  height: 28px;
+  border-radius: 6px;
+  padding: 0 9px;
+  color: var(--civitai-popover-text, rgba(245, 247, 248, 0.8));
+  background: var(--civitai-control-surface, rgba(255, 255, 255, 0.08));
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.civitai-segment:hover {
+  background: var(--civitai-control-surface-hover, rgba(255, 255, 255, 0.13));
+}
+
+.civitai-segment.is-active {
+  color: var(--civitai-control-active-text, #ffffff);
+  background: var(--civitai-control-active-surface, rgba(126, 139, 153, 0.5));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px var(--civitai-popover-border, rgba(255, 255, 255, 0.14));
+}
+
+.civitai-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.civitai-filter-secondary,
+.civitai-filter-apply {
+  height: 30px;
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.civitai-filter-secondary {
+  color: var(--civitai-popover-text, rgba(245, 247, 248, 0.78));
+  background: var(--civitai-control-surface, rgba(255, 255, 255, 0.08));
+}
+
+.civitai-filter-apply {
+  color: var(--civitai-apply-text, #15171a);
+  background: var(--civitai-apply-surface, #f4f7f9);
 }
 
 .carousel-shell {

@@ -11,6 +11,7 @@ import {
   Plus,
   Puzzle,
   RefreshCw,
+  SlidersHorizontal,
   Video,
   X,
 } from "lucide-react";
@@ -24,6 +25,7 @@ export const Icons = {
   Plus,
   XMark: X,
   ArrowPath: RefreshCw,
+  SlidersHorizontal,
   ClipboardDocument: Clipboard,
   Download,
   ArrowTopRight: ExternalLink,

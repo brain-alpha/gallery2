@@ -55,12 +55,19 @@ pub(crate) async fn list_images(
     app: tauri::AppHandle,
     cursor: Option<String>,
     limit: i64,
+    period: Option<String>,
+    sort: Option<String>,
+    browsing_level: Option<i64>,
 ) -> Result<CivitaiImagePage, String> {
     let limit = limit.clamp(1, 200);
+    let period = normalized_period(period);
+    let sort = normalized_sort(sort);
+    let browsing_level = normalized_browsing_level(browsing_level);
     let mut url = format!(
-        "{CIVITAI_IMAGES_ENDPOINT}?limit={limit}&type=image&period={}&sort={}&browsingLevel={CIVITAI_BROWSING_LEVEL_SAFE_AND_SOFT}",
-        encode_query_value(CIVITAI_PERIOD),
-        encode_query_value(CIVITAI_SORT),
+        "{CIVITAI_IMAGES_ENDPOINT}?limit={limit}&type=image&period={}&sort={}&browsingLevel={}",
+        encode_query_value(period),
+        encode_query_value(sort),
+        encode_query_value(&browsing_level),
     );
     if let Some(cursor) = normalized_cursor(cursor) {
         url.push_str("&cursor=");
@@ -159,6 +166,33 @@ fn normalized_cursor(cursor: Option<String>) -> Option<String> {
     cursor
         .map(|cursor| cursor.trim().to_string())
         .filter(|cursor| !cursor.is_empty())
+}
+
+fn normalized_period(period: Option<String>) -> &'static str {
+    match period.as_deref().map(str::trim) {
+        Some("AllTime") => "AllTime",
+        Some("Year") => "Year",
+        Some("Week") => "Week",
+        Some("Day") => "Day",
+        Some("Month") | _ => CIVITAI_PERIOD,
+    }
+}
+
+fn normalized_sort(sort: Option<String>) -> &'static str {
+    match sort.as_deref().map(str::trim) {
+        Some("Most Comments") => "Most Comments",
+        Some("Most Collected") => "Most Collected",
+        Some("Newest") => "Newest",
+        Some("Oldest") => "Oldest",
+        Some("Most Reactions") | _ => CIVITAI_SORT,
+    }
+}
+
+fn normalized_browsing_level(browsing_level: Option<i64>) -> String {
+    match browsing_level {
+        Some(level) if (1..=31).contains(&level) => level.to_string(),
+        _ => CIVITAI_BROWSING_LEVEL_SAFE_AND_SOFT.to_string(),
+    }
 }
 
 fn encode_query_value(value: &str) -> String {

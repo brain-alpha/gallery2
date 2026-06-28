@@ -27,6 +27,15 @@ export interface CivitaiImagePage {
   nextCursor: string | null;
 }
 
+export type CivitaiPeriod = "AllTime" | "Year" | "Month" | "Week" | "Day";
+export type CivitaiImageSort = "Most Reactions" | "Most Comments" | "Most Collected" | "Newest" | "Oldest";
+
+export interface CivitaiImageFilters {
+  period: CivitaiPeriod;
+  sort: CivitaiImageSort;
+  browsingLevel: number;
+}
+
 export interface CivitaiFavoriteResult {
   path: string;
   alreadyFavorited: boolean;

@@ -547,8 +547,11 @@ pub(crate) async fn list_civitai_images(
     app: tauri::AppHandle,
     cursor: Option<String>,
     limit: i64,
+    period: Option<String>,
+    sort: Option<String>,
+    browsing_level: Option<i64>,
 ) -> Result<CivitaiImagePage, String> {
-    civitai::list_images(app, cursor, limit).await
+    civitai::list_images(app, cursor, limit, period, sort, browsing_level).await
 }
 
 #[tauri::command]
