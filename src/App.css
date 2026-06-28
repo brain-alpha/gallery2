@@ -38,7 +38,7 @@
 
 * {
   box-sizing: border-box;
-  cursor: default !important;
+  /* cursor: default !important; */
 }
 
 html,
@@ -77,6 +77,36 @@ output {
 
 button {
   border: 0;
+}
+
+button:not(:disabled),
+input[type="button"]:not(:disabled),
+input[type="submit"]:not(:disabled),
+input[type="reset"]:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="range"]:not(:disabled),
+select:not(:disabled),
+a[href] {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: default;
+}
+
+input:not([type]),
+input[type="email"],
+input[type="number"],
+input[type="password"],
+input[type="search"],
+input[type="text"],
+input[type="url"],
+textarea {
+  cursor: text;
 }
 
 .primary-button,
@@ -313,6 +343,10 @@ p {
     border-color 160ms ease;
 }
 
+.choice-pill input:not(:disabled) + span {
+  cursor: pointer;
+}
+
 .choice-pill span:hover {
   border-color: #b8b8b8;
   background: #f7f7f7;
@@ -349,6 +383,11 @@ p {
 
 .toggle-row[data-disabled="true"] {
   opacity: 0.48;
+}
+
+.toggle-row:not([data-disabled="true"]),
+.toggle-row:not([data-disabled="true"]) .toggle-switch {
+  cursor: pointer;
 }
 
 .toggle-row input {
@@ -684,7 +723,7 @@ textarea:focus {
   --civitai-control-surface: rgba(255, 255, 255, 0.52);
   --civitai-control-surface-hover: rgba(255, 255, 255, 0.74);
   --civitai-control-active-surface: rgba(28, 30, 34, 0.12);
-  --civitai-control-active-text: rgba(19, 21, 24, 0.96);
+  --civitai-control-active-text: #4d7fc4;
   --civitai-apply-surface: rgba(23, 25, 28, 0.9);
   --civitai-apply-text: #ffffff;
 }
@@ -731,7 +770,7 @@ textarea:focus {
   --civitai-control-surface: rgba(255, 255, 255, 0.08);
   --civitai-control-surface-hover: rgba(255, 255, 255, 0.14);
   --civitai-control-active-surface: rgba(255, 255, 255, 0.18);
-  --civitai-control-active-text: #ffffff;
+  --civitai-control-active-text: #a8c7ff;
   --civitai-apply-surface: rgba(248, 250, 252, 0.92);
   --civitai-apply-text: #16181c;
 }
@@ -812,6 +851,11 @@ textarea:focus {
     0 6px 18px rgba(0, 0, 0, 0.12);
   font-size: 0.78rem;
   font-weight: 800;
+  transition:
+    transform 150ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
 }
 
 .civitai-filter-button span {
@@ -821,6 +865,20 @@ textarea:focus {
 .civitai-filter-button:hover,
 .civitai-filter-button.is-active {
   background: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 10px 24px rgba(0, 0, 0, 0.16);
+  transform: translateY(-1px);
+}
+
+.civitai-filter-button:active {
+  background: rgba(255, 255, 255, 0.17);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 4px 12px rgba(0, 0, 0, 0.12);
+  transform: translateY(0);
 }
 
 .civitai-filter-button svg {
@@ -874,10 +932,23 @@ textarea:focus {
   background: var(--civitai-control-surface, rgba(255, 255, 255, 0.08));
   font-size: 0.76rem;
   font-weight: 700;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  transition:
+    transform 140ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
 }
 
 .civitai-segment:hover {
   background: var(--civitai-control-surface-hover, rgba(255, 255, 255, 0.13));
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.civitai-segment:active {
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.08);
+  transform: translateY(0);
 }
 
 .civitai-segment.is-active {
@@ -885,7 +956,8 @@ textarea:focus {
   background: var(--civitai-control-active-surface, rgba(126, 139, 153, 0.5));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 0 0 1px var(--civitai-popover-border, rgba(255, 255, 255, 0.14));
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 7px 18px rgba(0, 0, 0, 0.1);
 }
 
 .civitai-filter-actions {
@@ -902,6 +974,11 @@ textarea:focus {
   padding: 0 12px;
   font-size: 0.78rem;
   font-weight: 800;
+  transition:
+    transform 140ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
 }
 
 .civitai-filter-secondary {
@@ -909,9 +986,27 @@ textarea:focus {
   background: var(--civitai-control-surface, rgba(255, 255, 255, 0.08));
 }
 
+.civitai-filter-secondary:hover {
+  background: var(--civitai-control-surface-hover, rgba(255, 255, 255, 0.13));
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
 .civitai-filter-apply {
   color: var(--civitai-apply-text, #15171a);
   background: var(--civitai-apply-surface, #f4f7f9);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.civitai-filter-apply:hover {
+  box-shadow: 0 11px 26px rgba(0, 0, 0, 0.16);
+  transform: translateY(-1px);
+}
+
+.civitai-filter-secondary:active,
+.civitai-filter-apply:active {
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.1);
+  transform: translateY(0);
 }
 
 .carousel-shell {
@@ -1256,7 +1351,7 @@ textarea:focus {
   gap: 8px;
   width: 100%;
   min-height: 48px;
-  padding: 8px 0 24px;
+  padding: 24px 0;
   color: rgba(23, 23, 23, 0.58);
   font-size: 0.86rem;
   font-weight: 600;
