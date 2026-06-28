@@ -559,3 +559,8 @@ pub(crate) async fn favorite_civitai_image(
 ) -> Result<CivitaiFavoriteResult, String> {
     civitai::favorite_image(app, image_id, url).await
 }
+
+#[tauri::command]
+pub(crate) fn unfavorite_civitai_image(app: tauri::AppHandle, image_id: i64) -> Result<(), String> {
+    civitai::unfavorite_image(app, image_id)
+}

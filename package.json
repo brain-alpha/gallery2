@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "dev:app": "cargo tauri dev",
+    "dev:app:clear": "node scripts/clean-dev-app.mjs && cargo tauri dev",
     "build": "tsc && vite build",
     "package:compile:mac": "rustc --edition=2021 --crate-name gallery2_package scripts/package_macos.rs -o gallery2_package_macos",
     "package:compile:windows": "rustc --edition=2021 --crate-name gallery2_package scripts/package_windows.rs -o gallery2_package_windows.exe",

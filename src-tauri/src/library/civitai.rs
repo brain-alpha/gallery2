@@ -143,6 +143,18 @@ pub(crate) async fn favorite_image(
     })
 }
 
+pub(crate) fn unfavorite_image(app: tauri::AppHandle, image_id: i64) -> Result<(), String> {
+    if image_id <= 0 {
+        return Err("Civitai image id 无效".to_string());
+    }
+
+    let favorite_dir = civitai_favorites_dir(&app)?;
+    let Some(path) = existing_favorite_path(&favorite_dir, image_id) else {
+        return Ok(());
+    };
+    fs::remove_file(&path).map_err(|err| format!("Failed to remove Civitai favorite image: {err}"))
+}
+
 fn normalized_cursor(cursor: Option<String>) -> Option<String> {
     cursor
         .map(|cursor| cursor.trim().to_string())

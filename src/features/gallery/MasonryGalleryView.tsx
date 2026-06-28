@@ -11,7 +11,14 @@ import type {
 } from "../../types";
 import { classNames, logError, setPageBackground, storeGalleryTheme, storedGalleryTheme } from "../../utils";
 import { buildLayout } from "./layout";
-import { pauseVideoElement, PreviewOverlay, TileImage, type PreviewState, VideoTile } from "./MediaTile";
+import {
+  pauseVideoElement,
+  PreviewOverlay,
+  TileImage,
+  type ImageRetryOptions,
+  type PreviewState,
+  VideoTile,
+} from "./MediaTile";
 import { mediaSrc, recordOriginalSrc } from "./mediaSource";
 import { useGalleryViewport } from "./useWindowViewport";
 
@@ -29,7 +36,9 @@ interface MasonryGalleryViewProps<TCursor> {
   loadPage: (cursor: TCursor | null, limit: number) => Promise<GalleryDataPage<TCursor>>;
   pageSize?: number;
   favoriteRecord?: (record: ImageRecord) => Promise<unknown>;
+  unfavoriteRecord?: (record: ImageRecord) => Promise<unknown>;
   tileImageLoadDelayMs?: number;
+  tileImageRetryOptions?: ImageRetryOptions;
 }
 
 interface ContextMenuState {
@@ -42,7 +51,9 @@ export function MasonryGalleryView<TCursor>({
   loadPage,
   pageSize = DEFAULT_PAGE_SIZE,
   favoriteRecord,
+  unfavoriteRecord,
   tileImageLoadDelayMs = 0,
+  tileImageRetryOptions,
 }: MasonryGalleryViewProps<TCursor>) {
   const [preferences, setPreferences] = useState<GalleryPreferences | null>(null);
   const initialTheme = useMemo(() => storedGalleryTheme(), []);
@@ -53,8 +64,8 @@ export function MasonryGalleryView<TCursor>({
   const [preview, setPreview] = useState<PreviewState>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [selectedReferenceRecords, setSelectedReferenceRecords] = useState<ImageRecord[]>([]);
-  const [favoritedPaths, setFavoritedPaths] = useState<Set<string>>(() => new Set());
-  const [favoritingPaths, setFavoritingPaths] = useState<Set<string>>(() => new Set());
+  const [favoriteOverrides, setFavoriteOverrides] = useState<Map<string, boolean>>(() => new Map());
+  const [favoriteUpdatingPaths, setFavoriteUpdatingPaths] = useState<Set<string>>(() => new Set());
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<EditorDrawerHandle | null>(null);
   const loadingRef = useRef(false);
@@ -314,34 +325,45 @@ export function MasonryGalleryView<TCursor>({
   }
 
   function isRecordFavorited(record: ImageRecord) {
-    return record.favorited || favoritedPaths.has(record.path);
+    return favoriteOverrides.get(record.path) ?? record.favorited;
   }
 
-  function isRecordFavoriting(record: ImageRecord) {
-    return favoritingPaths.has(record.path);
+  function isRecordFavoriteUpdating(record: ImageRecord) {
+    return favoriteUpdatingPaths.has(record.path);
   }
 
-  async function handleFavorite(record: ImageRecord) {
-    if (!favoriteRecord || record.mediaType !== "image" || isRecordFavorited(record) || isRecordFavoriting(record)) {
+  async function handleFavoriteToggle(record: ImageRecord) {
+    if (record.mediaType !== "image" || isRecordFavoriteUpdating(record)) {
       return;
     }
 
+    const nextFavorited = !isRecordFavorited(record);
+    const updateFavorite = nextFavorited ? favoriteRecord : unfavoriteRecord;
+    if (!updateFavorite) return;
+
     setContextMenu(null);
-    setFavoritingPaths((current) => new Set(current).add(record.path));
+    setFavoriteUpdatingPaths((current) => new Set(current).add(record.path));
     try {
-      await favoriteRecord(record);
-      setFavoritedPaths((current) => new Set(current).add(record.path));
+      await updateFavorite(record);
+      setFavoriteOverrides((current) => {
+        const next = new Map(current);
+        next.set(record.path, nextFavorited);
+        return next;
+      });
       setRecords((current) => {
         const next = current.map((item) => (
-          item.path === record.path ? { ...item, favorited: true } : item
+          item.path === record.path ? { ...item, favorited: nextFavorited } : item
         ));
         recordsRef.current = next;
         return next;
       });
     } catch (error) {
-      logError(error, "Failed to favorite Civitai image");
+      const label = nextFavorited
+        ? "Failed to favorite Civitai image"
+        : "Failed to unfavorite Civitai image";
+      logError(error, label);
     } finally {
-      setFavoritingPaths((current) => {
+      setFavoriteUpdatingPaths((current) => {
         const next = new Set(current);
         next.delete(record.path);
         return next;
@@ -354,6 +376,8 @@ export function MasonryGalleryView<TCursor>({
   }
 
   const themeClass = `theme-${preferences.theme === "black" ? "black" : "white"}`;
+  const contextMenuFavorited = contextMenu ? isRecordFavorited(contextMenu.record) : false;
+  const contextMenuFavoriteUpdating = contextMenu ? isRecordFavoriteUpdating(contextMenu.record) : false;
 
   return (
     <main
@@ -374,14 +398,14 @@ export function MasonryGalleryView<TCursor>({
           if (!record || !layout) return null;
           const selected = selectedReferenceRecords.some((item) => item.path === record.path);
           const favorited = isRecordFavorited(record);
-          const favoriting = isRecordFavoriting(record);
+          const favoriteUpdating = isRecordFavoriteUpdating(record);
           return (
             <button
               className={classNames(
                 "image-tile",
                 selected && "is-selected",
                 favorited && "is-favorited",
-                favoriting && "is-favoriting",
+                favoriteUpdating && "is-favoriting",
               )}
               key={record.path}
               type="button"
@@ -405,6 +429,7 @@ export function MasonryGalleryView<TCursor>({
                   record={record}
                   displayWidth={layout.width}
                   loadDelayMs={tileImageLoadDelayMs}
+                  retryOptions={tileImageRetryOptions}
                 />
               )}
               {selected ? (
@@ -412,12 +437,12 @@ export function MasonryGalleryView<TCursor>({
                   <Icons.PuzzlePiece />
                 </span>
               ) : null}
-              {favoriting ? (
+              {favoriteUpdating ? (
                 <span className="image-tile-badge image-tile-favorite-status" aria-hidden="true">
                   <span className="favorite-status-spinner" />
                 </span>
               ) : null}
-              {favorited && !favoriting ? (
+              {favorited && !favoriteUpdating ? (
                 <span className="image-tile-badge image-tile-favorite-mark" aria-hidden="true">
                   <Icons.Heart />
                 </span>
@@ -465,17 +490,21 @@ export function MasonryGalleryView<TCursor>({
           {favoriteRecord && contextMenu.record.mediaType === "image" ? (
             <button
               type="button"
-              disabled={isRecordFavorited(contextMenu.record) || isRecordFavoriting(contextMenu.record)}
+              disabled={contextMenuFavoriteUpdating || (contextMenuFavorited && !unfavoriteRecord)}
               onClick={() => {
-                handleFavorite(contextMenu.record).catch((error) => logError(error, "Failed to favorite Civitai image"));
+                handleFavoriteToggle(contextMenu.record).catch((error) => {
+                  logError(error, "Failed to toggle Civitai favorite");
+                });
               }}
             >
-              <Icons.Heart />
+              {contextMenuFavorited ? <Icons.HeartOff /> : <Icons.Heart />}
               <span>
-                {isRecordFavoriting(contextMenu.record)
-                  ? "收藏中"
-                  : isRecordFavorited(contextMenu.record)
-                    ? "已收藏"
+                {contextMenuFavoriteUpdating
+                  ? contextMenuFavorited
+                    ? "取消中"
+                    : "收藏中"
+                  : contextMenuFavorited
+                    ? "取消收藏"
                     : "收藏"}
               </span>
             </button>
