@@ -343,8 +343,8 @@ pub(crate) fn toggle_desktop_background_window(app: &tauri::AppHandle) -> Result
         }
 
         window
-            .hide()
-            .map_err(|err| format!("Failed to close desktop background: {err}"))?;
+            .destroy()
+            .map_err(|err| format!("Failed to destroy desktop background: {err}"))?;
         return Ok(false);
     }
 

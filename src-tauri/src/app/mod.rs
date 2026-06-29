@@ -31,7 +31,7 @@ use std::{
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    Manager,
+    Manager, RunEvent,
 };
 
 const SETTINGS_MENU_ID: &str = "open_settings";
@@ -109,7 +109,7 @@ pub fn run() {
         return;
     }
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(Arc::new(Mutex::new(initial_thumbnail_progress())) as ThumbnailProgressState)
         .manage(Arc::new(Mutex::new(HashSet::<String>::new())) as WindowsFullscreenRestoreState)
         .manage(Arc::new(Mutex::new(KeepAwake::default())) as KeepAwakeState)
@@ -209,7 +209,6 @@ pub fn run() {
             commands::get_gallery_preferences,
             commands::save_gallery_preferences,
             commands::save_source_paths,
-            commands::save_windows_close_behavior,
             commands::save_windows_startup_settings,
             commands::save_xai_settings,
             commands::save_civitai_favorites_dir,
@@ -242,6 +241,15 @@ pub fn run() {
             commands::favorite_civitai_image,
             commands::unfavorite_civitai_image
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|_app_handle, event| {
+        if let RunEvent::ExitRequested {
+            code: None, api, ..
+        } = event
+        {
+            api.prevent_exit();
+        }
+    });
 }

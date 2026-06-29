@@ -2,14 +2,6 @@
 //! 负责 settings/gallery/carousel/civitai 窗口的创建、显示、关闭策略、全屏恢复和走马灯保持唤醒。
 //! 桌面背景窗口独立放在 window::desktop_background，避免平台挂载逻辑混入普通窗口流程。
 
-#[cfg(target_os = "windows")]
-use crate::storage::{
-    config::{
-        persist_windows_close_behavior, windows_close_behavior, WINDOWS_CLOSE_BEHAVIOR_ASK,
-        WINDOWS_CLOSE_BEHAVIOR_EXIT, WINDOWS_CLOSE_BEHAVIOR_TRAY,
-    },
-    db::open_db,
-};
 use crate::{
     app::{
         labels::{
@@ -21,8 +13,6 @@ use crate::{
     shared::models::GalleryPreferences,
     storage::{asset_scope::refresh_asset_scope, config::get_gallery_preferences_from_app},
 };
-#[cfg(target_os = "windows")]
-use std::sync::{Arc, Mutex};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     sync::mpsc,
@@ -34,10 +24,6 @@ use tauri::{
     window::Color, LogicalSize, Manager, Size, State, Theme, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder, WindowEvent,
 };
-#[cfg(target_os = "windows")]
-use tauri_plugin_dialog::DialogExt;
-#[cfg(target_os = "windows")]
-use tauri_plugin_dialog::{MessageDialogButtons, MessageDialogKind};
 
 pub(crate) fn gallery_background_color(preferences: &GalleryPreferences) -> Color {
     if preferences.theme == "black" {
@@ -145,9 +131,9 @@ pub(crate) fn show_window(app: &tauri::AppHandle, label: &str) -> Result<(), Str
     if let Some(preferences) = &gallery_preferences {
         apply_gallery_window_preferences(&window, &preferences)?;
     }
-    attach_close_handler(&window);
     let fullscreen_restore_state = app.state::<WindowsFullscreenRestoreState>().inner().clone();
     let keep_awake_state = app.state::<KeepAwakeState>().inner().clone();
+    attach_close_handler(&window, keep_awake_state.clone());
     attach_windows_fullscreen_handler(&window, fullscreen_restore_state, keep_awake_state.clone());
     attach_carousel_keep_awake_handler(&window, keep_awake_state.clone());
     update_carousel_keep_awake(&window, &keep_awake_state);
@@ -158,17 +144,12 @@ pub(crate) fn show_window(app: &tauri::AppHandle, label: &str) -> Result<(), Str
 
 pub(crate) fn show_window_from_settings(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
     let settings_window = app.get_webview_window(SETTINGS_LABEL);
-    if let Some(window) = &settings_window {
-        window
-            .hide()
-            .map_err(|err| format!("Failed to hide settings window: {err}"))?;
-    }
+    show_window(app, label)?;
 
-    if let Err(err) = show_window(app, label) {
-        if let Some(window) = settings_window {
-            let _ = bring_window_to_front(&window);
-        }
-        return Err(err);
+    if let Some(window) = settings_window {
+        window
+            .close()
+            .map_err(|err| format!("Failed to close settings window: {err}"))?;
     }
 
     Ok(())
@@ -197,95 +178,31 @@ pub(crate) async fn run_window_task(
     .map_err(|err| format!("Failed to wait for {label}: {err}"))?
 }
 
-fn attach_close_handler(window: &WebviewWindow) {
-    #[cfg(target_os = "windows")]
-    {
-        let window_for_close = window.clone();
-        let prompt_open = Arc::new(Mutex::new(false));
-        window.on_window_event(move |event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let app = window_for_close.app_handle().clone();
-                let behavior = open_db(&app)
-                    .and_then(|conn| windows_close_behavior(&conn))
-                    .unwrap_or_else(|_| WINDOWS_CLOSE_BEHAVIOR_ASK.to_string());
-                if behavior == WINDOWS_CLOSE_BEHAVIOR_EXIT {
-                    app.exit(0);
-                    return;
-                }
-                if behavior == WINDOWS_CLOSE_BEHAVIOR_TRAY {
-                    let _ = window_for_close.hide();
-                    return;
-                }
-
-                let Ok(mut is_prompt_open) = prompt_open.lock() else {
-                    return;
-                };
-                if *is_prompt_open {
-                    return;
-                }
-                *is_prompt_open = true;
-                drop(is_prompt_open);
-
-                let window_for_dialog = window_for_close.clone();
-                let window_for_action = window_for_close.clone();
-                let prompt_open_after_close = Arc::clone(&prompt_open);
-                window_for_dialog
-                    .dialog()
-                    .message("本次关闭方式将作为默认选择保存，之后可在设置中调整。")
-                    .parent(&window_for_dialog)
-                    .title("关闭 Gallery")
-                    .kind(MessageDialogKind::Info)
-                    .buttons(MessageDialogButtons::OkCancelCustom(
-                        "退出应用".to_string(),
-                        "保留托盘".to_string(),
-                    ))
-                    .show(move |should_exit| {
-                        if let Ok(mut is_prompt_open) = prompt_open_after_close.lock() {
-                            *is_prompt_open = false;
-                        }
-                        let close_behavior = if should_exit {
-                            WINDOWS_CLOSE_BEHAVIOR_EXIT
-                        } else {
-                            WINDOWS_CLOSE_BEHAVIOR_TRAY
-                        };
-                        if let Err(err) =
-                            persist_windows_close_behavior(&app, close_behavior.to_string())
-                        {
-                            eprintln!("Failed to persist Windows close behavior: {err}");
-                        }
-                        let app_for_action = app.clone();
-                        let fallback_window = window_for_action.clone();
-                        let fallback_app = app.clone();
-                        if should_exit {
-                            if let Err(err) = app.run_on_main_thread(move || {
-                                app_for_action.exit(0);
-                            }) {
-                                eprintln!("Failed to schedule app exit: {err}");
-                                fallback_app.exit(0);
-                            }
-                        } else {
-                            if let Err(err) = app.run_on_main_thread(move || {
-                                let _ = window_for_action.hide();
-                            }) {
-                                eprintln!("Failed to schedule window hide: {err}");
-                                let _ = fallback_window.hide();
-                            }
-                        }
-                    });
-            }
-        });
+fn attach_close_handler(window: &WebviewWindow, keep_awake_state: KeepAwakeState) {
+    if window.label() == SETTINGS_LABEL {
+        return;
     }
 
-    #[cfg(not(target_os = "windows"))]
-    {
-        let window_to_hide = window.clone();
-        window.on_window_event(move |event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window_to_hide.hide();
-            }
-        });
+    let label = window.label().to_string();
+    let window_to_destroy = window.clone();
+    window.on_window_event(move |event| {
+        if let WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            destroy_application_window(&window_to_destroy, &label, &keep_awake_state);
+        }
+    });
+}
+
+fn destroy_application_window(
+    window: &WebviewWindow,
+    label: &str,
+    keep_awake_state: &KeepAwakeState,
+) {
+    if label == CAROUSEL_LABEL {
+        set_carousel_keep_awake_active(keep_awake_state, false);
+    }
+    if let Err(err) = window.destroy() {
+        eprintln!("Failed to destroy window {}: {err}", window.label());
     }
 }
 

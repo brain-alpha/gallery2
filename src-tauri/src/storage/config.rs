@@ -24,10 +24,6 @@ use std::{env, fs, path::PathBuf};
 const ENCRYPTED_XAI_KEY_PREFIX: &str = "enc:v1:";
 const CIVITAI_FAVORITES_DIR_CONFIG_KEY: &str = "civitai_favorites_dir";
 pub(crate) const CIVITAI_FAVORITES_DIR_NAME: &str = "civitai-favorites";
-pub(crate) const WINDOWS_CLOSE_BEHAVIOR_CONFIG_KEY: &str = "windows_close_behavior";
-pub(crate) const WINDOWS_CLOSE_BEHAVIOR_ASK: &str = "ask";
-pub(crate) const WINDOWS_CLOSE_BEHAVIOR_EXIT: &str = "exit";
-pub(crate) const WINDOWS_CLOSE_BEHAVIOR_TRAY: &str = "tray";
 const WINDOWS_STARTUP_ENABLED_CONFIG_KEY: &str = "windows_startup_enabled";
 const WINDOWS_STARTUP_DESKTOP_BACKGROUND_CONFIG_KEY: &str = "windows_startup_desktop_background";
 #[cfg(target_os = "windows")]
@@ -137,33 +133,6 @@ pub(crate) fn persist_civitai_favorites_dir(
 
 pub(crate) fn thumbnail_enabled(conn: &Connection) -> Result<bool, String> {
     Ok(read_config(conn, "thumbnail_enabled", "false")? == "true")
-}
-
-pub(crate) fn normalize_windows_close_behavior(value: String) -> String {
-    match value.as_str() {
-        WINDOWS_CLOSE_BEHAVIOR_EXIT | WINDOWS_CLOSE_BEHAVIOR_TRAY | WINDOWS_CLOSE_BEHAVIOR_ASK => {
-            value
-        }
-        _ => WINDOWS_CLOSE_BEHAVIOR_ASK.to_string(),
-    }
-}
-
-pub(crate) fn windows_close_behavior(conn: &Connection) -> Result<String, String> {
-    Ok(normalize_windows_close_behavior(read_config(
-        conn,
-        WINDOWS_CLOSE_BEHAVIOR_CONFIG_KEY,
-        WINDOWS_CLOSE_BEHAVIOR_ASK,
-    )?))
-}
-
-pub(crate) fn persist_windows_close_behavior(
-    app: &tauri::AppHandle,
-    close_behavior: String,
-) -> Result<String, String> {
-    let conn = open_db(app)?;
-    let close_behavior = normalize_windows_close_behavior(close_behavior);
-    write_config(&conn, WINDOWS_CLOSE_BEHAVIOR_CONFIG_KEY, &close_behavior)?;
-    Ok(close_behavior)
 }
 
 fn config_bool(conn: &Connection, key: &str) -> Result<bool, String> {

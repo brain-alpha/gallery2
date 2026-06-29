@@ -41,8 +41,6 @@ export interface CivitaiFavoriteResult {
   alreadyFavorited: boolean;
 }
 
-export type WindowsCloseBehavior = "ask" | "exit" | "tray";
-
 export interface SettingsState {
   platform: string;
   paths: string[];
@@ -58,7 +56,6 @@ export interface SettingsState {
   galleryHasGap: boolean;
   galleryTheme: "black" | "white";
   minColumnWidth: number;
-  windowsCloseBehavior: WindowsCloseBehavior;
   windowsStartupEnabled: boolean;
   windowsStartupDesktopBackground: boolean;
 }

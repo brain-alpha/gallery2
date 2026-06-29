@@ -27,8 +27,7 @@ use crate::{
             configured_thumbnail_dir, current_platform, default_thumbnail_dir,
             get_gallery_preferences_from_app, get_gallery_preferences_from_conn,
             normalize_gallery_mode, normalize_gallery_preferences, persist_civitai_favorites_dir,
-            persist_windows_close_behavior, persist_windows_startup_settings, thumbnail_enabled,
-            windows_close_behavior, windows_startup_settings,
+            persist_windows_startup_settings, thumbnail_enabled, windows_startup_settings,
         },
         db::{open_db, read_config, write_config},
         paths::db_path,
@@ -123,7 +122,6 @@ pub(crate) fn get_settings(app: tauri::AppHandle) -> Result<SettingsState, Strin
         gallery_has_gap: preferences.has_gap,
         gallery_theme: preferences.theme,
         min_column_width: preferences.min_column_width,
-        windows_close_behavior: windows_close_behavior(&conn)?,
         windows_startup_enabled: startup_settings.startup_enabled,
         windows_startup_desktop_background: startup_settings.startup_desktop_background,
     })
@@ -213,14 +211,6 @@ pub(crate) fn save_source_paths(
         paths: stored_paths,
         changed,
     })
-}
-
-#[tauri::command]
-pub(crate) fn save_windows_close_behavior(
-    app: tauri::AppHandle,
-    close_behavior: String,
-) -> Result<String, String> {
-    persist_windows_close_behavior(&app, close_behavior)
 }
 
 #[tauri::command]

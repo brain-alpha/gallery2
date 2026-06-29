@@ -8,7 +8,6 @@ import type {
   ScanSummary,
   SettingsState,
   SourcePathsUpdate,
-  WindowsCloseBehavior,
   WindowsStartupSettings,
 } from '../../types';
 import {
@@ -32,11 +31,6 @@ interface StatusState {
   tone: StatusTone;
 }
 
-function normalizeWindowsCloseBehavior(value: string): WindowsCloseBehavior {
-  if (value === 'exit' || value === 'tray' || value === 'ask') return value;
-  return 'ask';
-}
-
 export function SettingsView() {
   const [platform, setPlatform] = useState('');
   const [paths, setPaths] = useState<string[]>([]);
@@ -56,10 +50,6 @@ export function SettingsView() {
   const [savedTheme, setSavedTheme] = useState<'black' | 'white'>('white');
   const [minColumnWidth, setMinColumnWidth] = useState(280);
   const [savedMinColumnWidth, setSavedMinColumnWidth] = useState(280);
-  const [windowsCloseBehavior, setWindowsCloseBehavior] =
-    useState<WindowsCloseBehavior>('ask');
-  const [savedWindowsCloseBehavior, setSavedWindowsCloseBehavior] =
-    useState<WindowsCloseBehavior>('ask');
   const [windowsStartupEnabled, setWindowsStartupEnabled] = useState(false);
   const [savedWindowsStartupEnabled, setSavedWindowsStartupEnabled] = useState(false);
   const [windowsStartupDesktopBackground, setWindowsStartupDesktopBackground] = useState(false);
@@ -93,7 +83,6 @@ export function SettingsView() {
       xaiKey !== savedXaiKey ||
       generatedDir !== savedGeneratedDir ||
       civitaiFavoritesDir !== savedCivitaiFavoritesDir ||
-      (isWindows && windowsCloseBehavior !== savedWindowsCloseBehavior) ||
       (isWindows && windowsStartupEnabled !== savedWindowsStartupEnabled) ||
       (isWindows && windowsStartupDesktopBackground !== savedWindowsStartupDesktopBackground)
     );
@@ -113,8 +102,6 @@ export function SettingsView() {
     civitaiFavoritesDir,
     savedCivitaiFavoritesDir,
     isWindows,
-    windowsCloseBehavior,
-    savedWindowsCloseBehavior,
     windowsStartupEnabled,
     savedWindowsStartupEnabled,
     windowsStartupDesktopBackground,
@@ -126,7 +113,6 @@ export function SettingsView() {
   async function loadSettings() {
     const settings = await invoke<SettingsState>('get_settings');
     const loadedPaths = uniquePaths(settings.paths);
-    const closeBehavior = normalizeWindowsCloseBehavior(settings.windowsCloseBehavior);
     setPlatform(settings.platform || '');
     setPaths(loadedPaths);
     setSavedPaths(loadedPaths);
@@ -146,8 +132,6 @@ export function SettingsView() {
     setSavedTheme(settings.galleryTheme === 'black' ? 'black' : 'white');
     setMinColumnWidth(settings.minColumnWidth || 280);
     setSavedMinColumnWidth(settings.minColumnWidth || 280);
-    setWindowsCloseBehavior(closeBehavior);
-    setSavedWindowsCloseBehavior(closeBehavior);
     setWindowsStartupEnabled(Boolean(settings.windowsStartupEnabled));
     setSavedWindowsStartupEnabled(Boolean(settings.windowsStartupEnabled));
     setWindowsStartupDesktopBackground(Boolean(settings.windowsStartupDesktopBackground));
@@ -160,8 +144,6 @@ export function SettingsView() {
       hasGap !== savedHasGap || theme !== savedTheme || minColumnWidth !== savedMinColumnWidth;
     const xaiChanged = xaiKey !== savedXaiKey || generatedDir !== savedGeneratedDir;
     const civitaiFavoritesDirChanged = civitaiFavoritesDir !== savedCivitaiFavoritesDir;
-    const closeBehaviorChanged =
-      isWindows && windowsCloseBehavior !== savedWindowsCloseBehavior;
     const startupChanged =
       isWindows &&
       (windowsStartupEnabled !== savedWindowsStartupEnabled ||
@@ -191,11 +173,6 @@ export function SettingsView() {
         civitaiFavoritesDir,
       });
     }
-    const storedWindowsCloseBehavior = closeBehaviorChanged
-      ? await invoke<WindowsCloseBehavior>('save_windows_close_behavior', {
-          closeBehavior: windowsCloseBehavior,
-        })
-      : windowsCloseBehavior;
     const storedWindowsStartup = startupChanged
       ? await invoke<WindowsStartupSettings>('save_windows_startup_settings', {
           startupEnabled: windowsStartupEnabled,
@@ -220,8 +197,6 @@ export function SettingsView() {
     setSavedGeneratedDir(generatedDir);
     setCivitaiFavoritesDir(storedCivitaiFavoritesDir);
     setSavedCivitaiFavoritesDir(storedCivitaiFavoritesDir);
-    setWindowsCloseBehavior(storedWindowsCloseBehavior);
-    setSavedWindowsCloseBehavior(storedWindowsCloseBehavior);
     setWindowsStartupEnabled(storedWindowsStartup.startupEnabled);
     setSavedWindowsStartupEnabled(storedWindowsStartup.startupEnabled);
     setWindowsStartupDesktopBackground(storedWindowsStartup.startupDesktopBackground);
@@ -699,72 +674,32 @@ export function SettingsView() {
           </div>
 
           {isWindows && (
-            <>
-              <div className="field">
-                <span className="field-head">
-                  <span className="field-label">开机启动</span>
-                </span>
-                <div className="toggle-list">
-                  <label className="toggle-row">
-                    <span>启动应用</span>
-                    <input
-                      type="checkbox"
-                      checked={windowsStartupEnabled}
-                      onChange={(event) => handleWindowsStartupEnabledChange(event.currentTarget.checked)}
-                    />
-                    <span className="toggle-switch" aria-hidden="true" />
-                  </label>
-                  <label className="toggle-row" data-disabled={!windowsStartupEnabled}>
-                    <span>打开桌面背景</span>
-                    <input
-                      type="checkbox"
-                      checked={windowsStartupDesktopBackground}
-                      disabled={!windowsStartupEnabled}
-                      onChange={(event) => setWindowsStartupDesktopBackground(event.currentTarget.checked)}
-                    />
-                    <span className="toggle-switch" aria-hidden="true" />
-                  </label>
-                </div>
+            <div className="field">
+              <span className="field-head">
+                <span className="field-label">开机启动</span>
+              </span>
+              <div className="toggle-list">
+                <label className="toggle-row">
+                  <span>启动应用</span>
+                  <input
+                    type="checkbox"
+                    checked={windowsStartupEnabled}
+                    onChange={(event) => handleWindowsStartupEnabledChange(event.currentTarget.checked)}
+                  />
+                  <span className="toggle-switch" aria-hidden="true" />
+                </label>
+                <label className="toggle-row" data-disabled={!windowsStartupEnabled}>
+                  <span>打开桌面背景</span>
+                  <input
+                    type="checkbox"
+                    checked={windowsStartupDesktopBackground}
+                    disabled={!windowsStartupEnabled}
+                    onChange={(event) => setWindowsStartupDesktopBackground(event.currentTarget.checked)}
+                  />
+                  <span className="toggle-switch" aria-hidden="true" />
+                </label>
               </div>
-
-              <div className="field">
-                <span className="field-head">
-                  <span className="field-label">关闭窗口</span>
-                </span>
-                <div className="choice-group" role="radiogroup" aria-label="关闭窗口">
-                  <label className="choice-pill">
-                    <input
-                      type="radio"
-                      name="windows-close-behavior"
-                      value="ask"
-                      checked={windowsCloseBehavior === 'ask'}
-                      onChange={() => setWindowsCloseBehavior('ask')}
-                    />
-                    <span>每次询问</span>
-                  </label>
-                  <label className="choice-pill">
-                    <input
-                      type="radio"
-                      name="windows-close-behavior"
-                      value="exit"
-                      checked={windowsCloseBehavior === 'exit'}
-                      onChange={() => setWindowsCloseBehavior('exit')}
-                    />
-                    <span>退出应用</span>
-                  </label>
-                  <label className="choice-pill">
-                    <input
-                      type="radio"
-                      name="windows-close-behavior"
-                      value="tray"
-                      checked={windowsCloseBehavior === 'tray'}
-                      onChange={() => setWindowsCloseBehavior('tray')}
-                    />
-                    <span>保留托盘</span>
-                  </label>
-                </div>
-              </div>
-            </>
+            </div>
           )}
         </div>
 
